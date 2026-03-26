@@ -1,0 +1,22 @@
+{
+  "name": "mcp-recipes",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Recipe and configuration guidance service for VS Code Control Agent",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc -p .",
+    "watch": "tsc -w -p .",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.0.0"
+  }
+}

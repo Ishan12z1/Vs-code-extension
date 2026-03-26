@@ -12,7 +12,9 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npm run build -ws",
+    "dev:extension": "npm run watch -w apps/vscode-extension",
+    "dev:mcp": "npm run dev -w apps/mcp-recipes"
   },
   "repository": {
     "type": "git",
