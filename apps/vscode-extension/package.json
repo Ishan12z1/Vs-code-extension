@@ -1,0 +1,53 @@
+{
+  "name": "vscode-control-agent",
+  "displayName": "VS Code Control Agent",
+  "description": "A VS Code-native assistant for explaining and safely configuring the VS Code ecosystem.",
+  "version": "0.0.1",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onCommand:controlAgent.hello"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "controlAgent.hello",
+        "title": "Control Agent: Hello"
+      }
+    ],
+    "configuration": {
+      "title": "VS Code Control Agent",
+      "properties": {
+        "controlAgent.backendUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8000",
+          "description": "Backend base URL used by the extension."
+        },
+        "controlAgent.enableDebugLogs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose extension-host logging."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "tsc -p .",
+    "watch": "tsc -w -p .",
+    "package": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "rimraf": "^5.0.0",
+    "typescript": "^5.0.0"
+  }
+}

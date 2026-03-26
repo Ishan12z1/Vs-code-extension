@@ -76,6 +76,7 @@ The assistant can propose and apply bounded changes to supported VS Code surface
 - `.vscode/launch.json`
 - `.vscode/extensions.json`
 - selected keybindings
+- create a sceleton structure of folders and files for a project intialisation
 
 ### Example supported configuration actions
 
