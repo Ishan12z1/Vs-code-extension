@@ -6,12 +6,24 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_plan_placeholder() -> None:
+def test_plan_returns_not_implemented_error() -> None:
     response = client.post(
         "/plan",
-        json={"user_request": "Set up Python formatting for this workspace"},
+        json={
+            "userRequest": {
+                "id": "req-1",
+                "text": "Set up Python formatting for this workspace",
+            },
+            "workspaceSnapshot": {},
+        },
     )
+
     assert response.status_code == 200
+
     body = response.json()
-    assert body["status"] == "placeholder"
-    assert body["received_request"] == "Set up Python formatting for this workspace"
+    assert body["kind"] == "error"
+    assert body["error"]["code"] == "not_implemented"
+    assert (
+        body["error"]["message"]
+        == "Planning not implemented yet for request: Set up Python formatting for this workspace"
+    )
