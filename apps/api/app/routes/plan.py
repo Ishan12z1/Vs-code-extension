@@ -1,12 +1,28 @@
 from fastapi import APIRouter
-from app.schemas import PlanPlaceholderRequest,PlanPlaceholderResponse
+from pydantic import ValidationError
 
-router=APIRouter(prefix="/plan",tags=["plan"])
+from app.planner.schemas import PlanRequest
 
-@router.post("",response_model=PlanPlaceholderResponse)
-def create_plan(payload:PlanPlaceholderRequest)->PlanPlaceholderResponse:
-    return PlanPlaceholderResponse(
-        status="placeholder",
-        message="Not implemented",
-        received_request=payload.user_request
-    )
+router = APIRouter(prefix="/plan", tags=["plan"])
+
+
+@router.post("")
+def create_plan(payload: dict):
+    try:
+        validated = PlanRequest.model_validate(payload)
+    except ValidationError as exc:
+        return {
+            "kind": "error",
+            "error": {
+                "code": "invalid_request_payload",
+                "message": exc.errors()[0]["msg"],
+            },
+        }
+
+    return {
+        "kind": "error",
+        "error": {
+            "code": "not_implemented",
+            "message": f"Planning not implemented yet for request: {validated.userRequest.text}",
+        },
+    }
