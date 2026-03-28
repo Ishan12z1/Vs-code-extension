@@ -49,5 +49,8 @@
     "@types/vscode": "^1.90.0",
     "rimraf": "^5.0.0",
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@control-agent/contracts": "0.0.1"
   }
 }
