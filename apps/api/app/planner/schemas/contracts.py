@@ -32,6 +32,20 @@ class WorkspaceFolder(BaseModel):
     uri: str
 
 
+class InstalledTargetExtension(BaseModel):
+    id: str
+    installed: bool
+    version: str | None = None
+    isActive: bool = False
+
+
+class KeybindingSignal(BaseModel):
+    command: str
+    available: bool
+    keybinding: str | None = None
+    note: str | None = None
+
+
 class WorkspaceSnapshot(BaseModel):
     workspaceFolders: List[WorkspaceFolder] = Field(default_factory=list)
     hasWorkspaceFile: bool = False
@@ -39,6 +53,12 @@ class WorkspaceSnapshot(BaseModel):
     detectedMarkers: List[str] = Field(default_factory=list)
     installedExtensions: List[str] = Field(default_factory=list)
     relevantFiles: List[str] = Field(default_factory=list)
+
+    relevantUserSettings: Dict[str, Any] = Field(default_factory=dict)
+    relevantWorkspaceSettings: Dict[str, Any] = Field(default_factory=dict)
+    installedTargetExtensions: List[InstalledTargetExtension] = Field(default_factory=list)
+    keybindingSignals: List[KeybindingSignal] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
 
 
 class ApprovalRequirement(BaseModel):
