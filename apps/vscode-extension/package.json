@@ -13,13 +13,18 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "onCommand:controlAgent.hello"
+    "onCommand:controlAgent.hello",
+    "onCommand:controlAgent.inspectWorkspaceSnapshot"
   ],
   "contributes": {
     "commands": [
       {
         "command": "controlAgent.hello",
         "title": "Control Agent: Hello"
+      },
+      {
+        "command": "controlAgent.inspectWorkspaceSnapshot",
+        "title": "Control Agent: Inspect Workspace Snapshot"
       }
     ],
     "configuration": {
