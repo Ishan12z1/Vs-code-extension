@@ -14,7 +14,8 @@
   "main": "./dist/extension.js",
   "activationEvents": [
     "onCommand:controlAgent.hello",
-    "onCommand:controlAgent.inspectWorkspaceSnapshot"
+    "onCommand:controlAgent.inspectWorkspaceSnapshot",
+    "onCommand:controlAgent.explainWorkspace"
   ],
   "contributes": {
     "commands": [
@@ -25,6 +26,10 @@
       {
         "command": "controlAgent.inspectWorkspaceSnapshot",
         "title": "Control Agent: Inspect Workspace Snapshot"
+      },
+      {
+        "command": "controlAgent.explainWorkspace",
+        "title": "Control Agent: Explain Current VS Code Setup"
       }
     ],
     "configuration": {
