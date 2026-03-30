@@ -141,6 +141,41 @@ class PlanRequest(BaseModel):
     userRequest: UserRequest
     workspaceSnapshot: WorkspaceSnapshot
 
+class WorkspaceSnapshotAcceptanceRequest(BaseModel):
+    """
+    Step 5.6 request model.
+
+    This is intentionally simple:
+    - one collected snapshot
+    - timestamp from the extension
+    - source marker
+    """
+    snapshot: WorkspaceSnapshot
+    collectedAt: datetime
+    source: Literal["vscode-extension"] = "vscode-extension"
+
+
+class WorkspaceSnapshotAcceptanceSummary(BaseModel):
+    """
+    Small backend-produced summary of what was accepted.
+    """
+    workspaceFolderCount: int
+    detectedMarkerCount: int
+    relevantFileCount: int
+    installedTargetExtensionCount: int
+    parsedVscodeFileCount: int
+    invalidVscodeFileCount: int
+    noteCount: int
+
+
+class WorkspaceSnapshotAcceptanceResponse(BaseModel):
+    """
+    response model.
+    """
+    accepted: bool
+    message: str
+    summary: WorkspaceSnapshotAcceptanceSummary
+    warnings: List[str] = Field(default_factory=list)
 
 class PlanPayload(BaseModel):
     kind: Literal["plan"]

@@ -44,3 +44,41 @@ export const PlanResponseSchema = z.discriminatedUnion("kind", [
 
 export type PlanResponse = z.infer<typeof PlanResponseSchema>;
 
+/**
+ * Lightweight endpoint contract that only accepts and validates
+ * a collected workspaceSnapshot from the extension.
+ */
+
+export const WorkspaceSnapshotAcceptanceRequestSchema=z.object({
+  snapshot:WorkspaceSnapshotSchema,
+  collectedAt:z.string().datetime(),
+  source:z.literal("vscode-extension").default("vscode-extension")
+});
+
+export type WorkspaceSnapshotAcceptanceRequest = z.infer<typeof WorkspaceSnapshotAcceptanceRequestSchema>;
+
+
+export const WorkspaceSnapshotAcceptanceSummarySchema = z.object({
+  workspaceFolderCount: z.number().int().nonnegative(),
+  detectedMarkerCount: z.number().int().nonnegative(),
+  relevantFileCount: z.number().int().nonnegative(),
+  installedTargetExtensionCount: z.number().int().nonnegative(),
+  parsedVscodeFileCount: z.number().int().nonnegative(),
+  invalidVscodeFileCount: z.number().int().nonnegative(),
+  noteCount: z.number().int().nonnegative()
+});
+
+export type WorkspaceSnapshotAcceptanceSummary = z.infer<
+  typeof WorkspaceSnapshotAcceptanceSummarySchema
+>;
+
+export const WorkspaceSnapshotAcceptanceResponseSchema = z.object({
+  accepted: z.boolean(),
+  message: z.string().min(1),
+  summary: WorkspaceSnapshotAcceptanceSummarySchema,
+  warnings: z.array(z.string()).default([])
+});
+
+export type WorkspaceSnapshotAcceptanceResponse = z.infer<
+  typeof WorkspaceSnapshotAcceptanceResponseSchema
+>;
