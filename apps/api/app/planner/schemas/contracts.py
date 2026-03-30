@@ -50,7 +50,7 @@ class VscodeFileInspection(BaseModel):
     relativePath: str
     exists: bool
     parseStatus: Literal["not_found", "parsed", "invalid_jsonc"]
-    json: Any | None = None
+    parsedConteny: Any | None = None
     parseError: str | None = None
 
 
