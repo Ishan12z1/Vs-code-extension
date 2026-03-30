@@ -1,6 +1,11 @@
 /*Combining inspector results are  into one final snapshot.*/
 
-import type { WorkspaceSnapshot,WorkspaceFolder } from "@control-agent/contracts";
+import type {
+  InstalledTargetExtension,
+  KeybindingSignal,
+  WorkspaceFolder,
+  WorkspaceSnapshot
+} from "@control-agent/contracts";
 
 /*removes duplicates from a string array while preserving input order */
 function uniqueStrings(values:string[]):string[]{
@@ -24,11 +29,46 @@ function uniqueWorkspaceFolders(values:WorkspaceFolder[]):WorkspaceFolder[]{
     return result;
 
 }
-/**
- * Merges one inspector result into the accumulated snapshot.
- * Booleans are OR'd, arrays are appended then deduplicated.
- */
 
+
+/**
+ * Deduplicates selected extension state by id.
+ * Later entries win so newer inspector output can override older data.
+ */
+function uniqueInstalledTargetExtensions(
+  values:InstalledTargetExtension[]
+):InstalledTargetExtension[]{
+  const byId=new Map<string,InstalledTargetExtension>();
+  for (const extension of values){
+    byId.set(extension.id,extension);
+  }
+  return Array.from(byId.values());
+
+}
+
+/**
+ * Deduplicates keybinding/command signals by command.
+ * Later entries win.
+ */
+function uniqueKeybindingSignals(values: KeybindingSignal[]): KeybindingSignal[] {
+  const byCommand = new Map<string, KeybindingSignal>();
+
+  for (const value of values) {
+    byCommand.set(value.command, value);
+  }
+
+  return Array.from(byCommand.values());
+}
+
+
+/**
+ * Merges one inspector result into the current snapshot.
+ *
+ * Rules:
+ * - booleans: OR merge
+ * - arrays: append then dedupe
+ * - records: shallow merge
+ */
 export function mergeWorkspaceSnapshot(
   current: WorkspaceSnapshot,
   patch: Partial<WorkspaceSnapshot>
@@ -52,6 +92,24 @@ export function mergeWorkspaceSnapshot(
     relevantFiles: uniqueStrings([
       ...current.relevantFiles,
       ...(patch.relevantFiles ?? [])
-    ])
+    ]),
+
+    relevantUserSettings: {
+      ...current.relevantUserSettings,
+      ...(patch.relevantUserSettings ?? {})
+    },
+    relevantWorkspaceSettings: {
+      ...current.relevantWorkspaceSettings,
+      ...(patch.relevantWorkspaceSettings ?? {})
+    },
+    installedTargetExtensions: uniqueInstalledTargetExtensions([
+      ...current.installedTargetExtensions,
+      ...(patch.installedTargetExtensions ?? [])
+    ]),
+    keybindingSignals: uniqueKeybindingSignals([
+      ...current.keybindingSignals,
+      ...(patch.keybindingSignals ?? [])
+    ]),
+    notes: uniqueStrings([...current.notes, ...(patch.notes ?? [])])
   };
 }

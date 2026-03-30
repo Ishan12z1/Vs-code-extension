@@ -13,7 +13,12 @@ export function createEmptyWorkspaceSnapshot():WorkspaceSnapshot{
         vscodeFolderPresent: false,
         detectedMarkers:[],
         installedExtensions:[],
-        relevantFiles:[]
+        relevantFiles:[],
+        relevantUserSettings: {},
+        relevantWorkspaceSettings: {},
+        installedTargetExtensions: [],
+        keybindingSignals: [],
+        notes: []
     };
 
 
