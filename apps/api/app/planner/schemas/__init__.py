@@ -8,13 +8,15 @@ from .contracts import (
     PlannedAction,
     RollbackSnapshot,
     UserRequest,
-    WorkspaceFolder,
     WorkspaceSnapshot,
+    WorkspaceSnapshotAcceptanceRequest,
+    WorkspaceSnapshotAcceptanceResponse,
+    WorkspaceSnapshotAcceptanceSummary,
     validate_execution_plan,
 )
 
-__all__=[
-        "ActionPreview",
+__all__ = [
+    "ActionPreview",
     "ApprovalRequirement",
     "ExecutionPlan",
     "ExecutionResult",
@@ -24,5 +26,8 @@ __all__=[
     "RollbackSnapshot",
     "UserRequest",
     "WorkspaceSnapshot",
+    "WorkspaceSnapshotAcceptanceRequest",
+    "WorkspaceSnapshotAcceptanceResponse",
+    "WorkspaceSnapshotAcceptanceSummary",
     "validate_execution_plan",
 ]
