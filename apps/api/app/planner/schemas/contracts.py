@@ -46,6 +46,21 @@ class KeybindingSignal(BaseModel):
     note: str | None = None
 
 
+class VscodeFileInspection(BaseModel):
+    relativePath: str
+    exists: bool
+    parseStatus: Literal["not_found", "parsed", "invalid_jsonc"]
+    json: Any | None = None
+    parseError: str | None = None
+
+
+class VscodeFilesSnapshot(BaseModel):
+    settingsJson: VscodeFileInspection
+    tasksJson: VscodeFileInspection
+    launchJson: VscodeFileInspection
+    extensionsJson: VscodeFileInspection
+
+
 class WorkspaceSnapshot(BaseModel):
     workspaceFolders: List[WorkspaceFolder] = Field(default_factory=list)
     hasWorkspaceFile: bool = False
@@ -58,6 +73,8 @@ class WorkspaceSnapshot(BaseModel):
     relevantWorkspaceSettings: Dict[str, Any] = Field(default_factory=dict)
     installedTargetExtensions: List[InstalledTargetExtension] = Field(default_factory=list)
     keybindingSignals: List[KeybindingSignal] = Field(default_factory=list)
+
+    vscodeFiles: VscodeFilesSnapshot
     notes: List[str] = Field(default_factory=list)
 
 

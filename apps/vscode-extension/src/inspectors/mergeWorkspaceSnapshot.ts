@@ -3,6 +3,7 @@
 import type {
   InstalledTargetExtension,
   KeybindingSignal,
+  VscodeFilesSnapshot,
   WorkspaceFolder,
   WorkspaceSnapshot
 } from "@control-agent/contracts";
@@ -60,6 +61,19 @@ function uniqueKeybindingSignals(values: KeybindingSignal[]): KeybindingSignal[]
   return Array.from(byCommand.values());
 }
 
+function mergeVscodeFiles(
+  current:VscodeFilesSnapshot,
+  patch:Partial<VscodeFilesSnapshot> | undefined
+):VscodeFilesSnapshot{
+  if (!patch) return current;
+  return {
+    settingsJson:patch.settingsJson ?? current.settingsJson,
+    tasksJson:patch.tasksJson ?? current.tasksJson,
+    launchJson:patch.launchJson ?? current.launchJson,
+    extensionsJson:patch.extensionsJson ?? current.extensionsJson
+  };
+}
+
 
 /**
  * Merges one inspector result into the current snapshot.
@@ -68,6 +82,7 @@ function uniqueKeybindingSignals(values: KeybindingSignal[]): KeybindingSignal[]
  * - booleans: OR merge
  * - arrays: append then dedupe
  * - records: shallow merge
+ * - .vscode file states: later entries override matching file state
  */
 export function mergeWorkspaceSnapshot(
   current: WorkspaceSnapshot,
@@ -110,6 +125,7 @@ export function mergeWorkspaceSnapshot(
       ...current.keybindingSignals,
       ...(patch.keybindingSignals ?? [])
     ]),
+    vscodeFiles:mergeVscodeFiles(current.vscodeFiles,patch.vscodeFiles),
     notes: uniqueStrings([...current.notes, ...(patch.notes ?? [])])
   };
 }

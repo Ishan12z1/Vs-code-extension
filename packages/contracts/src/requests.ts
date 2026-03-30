@@ -16,7 +16,9 @@ export const RequestClassSchema =z.enum([
 export type RequestClass = z.infer<typeof RequestClassSchema>;
 
 
-
+/**
+ * Basic user request payload passed to the backend later.
+ */
 export const UserRequestSchema=z.object({
     id:z.string().min(1),
     text:z.string().min(1),
@@ -76,6 +78,51 @@ export type KeybindingSignal = z.infer<typeof KeybindingSignalSchema>;
 
 
 /**
+ * Parse status for a .vscode/* file inspection.
+ *
+ * - not_found: the file does not exist
+ * - parsed: file exists and parsed as JSONC successfully
+ * - invalid_jsonc: file exists but parsing failed
+ */
+export const VscodeFileParsedStatusSchema=z.enum([
+    "not_found",
+    "parsed",
+    "invalid_jsonc"
+]);
+
+export type VscodeFileParsedStatus = z.infer<typeof VscodeFileParsedStatusSchema>;
+
+/**
+ * Normalized inspection result for one .vscode/* file.
+ *
+ * We keep the payload generic because each file has different shapes:
+ * - settings.json => object
+ * - tasks.json => object
+ * - launch.json => object
+ * - extensions.json => object
+ */
+export const VscodeFileInspectionSchema=z.object({
+  relativePath:z.string().min(1),
+  exists:z.boolean(),
+  parseStatus:VscodeFileParsedStatusSchema,
+  json:z.unknown().nullable().default(null),
+  parseError:z.string().nullable().default(null)
+});
+
+export type VscodeFileInspection = z.infer<typeof VscodeFileInspectionSchema>;
+/**
+ * Group the managed .vscode/* file states into one stable object.
+ */
+export const VscodeFilesSnapshotSchema = z.object({
+  settingsJson: VscodeFileInspectionSchema,
+  tasksJson: VscodeFileInspectionSchema,
+  launchJson: VscodeFileInspectionSchema,
+  extensionsJson: VscodeFileInspectionSchema
+});
+
+export type VscodeFilesSnapshot = z.infer<typeof VscodeFilesSnapshotSchema>;
+
+/**
  * Normalized workspace snapshot.
  *
  * This now includes:
@@ -83,6 +130,7 @@ export type KeybindingSignal = z.infer<typeof KeybindingSignalSchema>;
  * - relevant workspace settings
  * - selected extension state
  * - keybinding/command signals
+ * - parsed .vscode/* file inspection state
  */
 export const WorkspaceSnapshotSchema = z.object({
   workspaceFolders: z.array(WorkspaceFolderSchema).default([]),
@@ -96,6 +144,8 @@ export const WorkspaceSnapshotSchema = z.object({
   relevantWorkspaceSettings: z.record(z.string(), z.unknown()).default({}),
   installedTargetExtensions: z.array(InstalledTargetExtensionSchema).default([]),
   keybindingSignals: z.array(KeybindingSignalSchema).default([]),
+
+  vscodeFiles: VscodeFilesSnapshotSchema,
   notes: z.array(z.string()).default([])
 });
 
