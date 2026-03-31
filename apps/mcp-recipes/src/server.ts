@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import { stat } from "fs";
+// import { stat } from "fs";
 
 const app = express();
 const port = Number(process.env.MCP_RECIPES_PORT ?? 8001);

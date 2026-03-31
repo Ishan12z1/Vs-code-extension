@@ -2,7 +2,7 @@
 
 import * as vscode from "vscode";
 import type { WorkspaceInspector, InspectionContext } from "../types";
-import { WorkspaceSnapshot } from "@control-agent/contracts";
+// import { WorkspaceSnapshot } from "@control-agent/contracts";
 
 /**
  * Bootstrap inspector.

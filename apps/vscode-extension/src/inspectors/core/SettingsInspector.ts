@@ -3,7 +3,7 @@
 import * as vscode from "vscode";
 import type { InspectionContext, WorkspaceInspector } from "../types";
 import { RELEVANT_SETTING_KEYS } from "./relevantVscodeSignals";
-import { WorkspaceSnapshot } from "@control-agent/contracts";
+// import { WorkspaceSnapshot } from "@control-agent/contracts";
 
 /**
  * Reads selected VS Code settings relevant to V1.
