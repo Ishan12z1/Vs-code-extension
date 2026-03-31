@@ -38,7 +38,11 @@
     "package:contracts": "npm run build -w packages/contracts",
     "package:extension": "npm run package -w apps/vscode-extension",
     "package:mcp": "npm run build -w apps/mcp-recipes",
-    "package:api": "cd apps/api && python -m compileall app"
+    "package:api": "cd apps/api && python -m compileall app",
+    "prepare": "npm run hooks:install",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "lint:staged": "lint-staged",
+    "precommit:full": "npm run lint && npm run format:check && npm run test"
   },
   "devDependencies": {
     "concurrently": "^9.0.1",
@@ -48,7 +52,8 @@
     "prettier": "^3.4.2",
     "typescript-eslint": "^8.24.1",
     "eslint": "^9.21.0",
-    "globals": "^15.15.0"
+    "globals": "^15.15.0",
+    "lint-staged": "^15.2.10"
   },
   "repository": {
     "type": "git",
