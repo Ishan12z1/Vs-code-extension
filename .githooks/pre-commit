@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+
+# Stop immediately if any command fails.
+set -e
+
+# Always run from the repository root so relative paths behave consistently.
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Run only staged-file checks here.
+# Full lint/test runs are available separately through:
+#   npm run precommit:full
+npm run lint:staged
