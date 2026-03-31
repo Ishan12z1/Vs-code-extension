@@ -6,3 +6,5 @@ node_modules/
 .venv
 vscode_control_agent_api.egg-info
 dist/
+.env.example
+.env

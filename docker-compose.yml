@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vscode-control-agent-postgres
+
+    # Basic local-dev credentials.
+    # These are fine for local Docker only.
+    environment:
+      POSTGRES_DB: control_agent
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    # Expose Postgres on the default local port so the API can reach it
+    # using the local development DATABASE_URL.
+    ports:
+      - "5432:5432"
+
+    # Persist database data between container restarts.
+    volumes:
+      - control-agent-postgres-data:/var/lib/postgresql/data
+
+    # Mark the container healthy only when Postgres is ready to accept connections.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d control_agent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    restart: unless-stopped
+
+volumes:
+  control-agent-postgres-data:

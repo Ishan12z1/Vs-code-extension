@@ -5,6 +5,11 @@ class HealthResponse(BaseModel):
     status: str
 
 
+class DatabaseHealthResponse(BaseModel):
+    status: str
+    database_name: str | None = None
+
+
 class VersionResponse(BaseModel):
     name: str
     version: str
