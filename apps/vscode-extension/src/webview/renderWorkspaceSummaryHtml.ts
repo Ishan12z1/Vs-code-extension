@@ -31,7 +31,9 @@ function toneClassName(tone: string | undefined): string {
 /**
  * Renders one section of the summary UI.
  */
-function renderSection(section: WorkspaceSummaryViewModel["sections"][number]): string {
+function renderSection(
+  section: WorkspaceSummaryViewModel["sections"][number]
+): string {
   const itemsHtml =
     section.items.length > 0
       ? section.items

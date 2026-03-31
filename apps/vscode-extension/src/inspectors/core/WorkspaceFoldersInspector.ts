@@ -13,28 +13,28 @@ import { WorkspaceSnapshot } from "@control-agent/contracts";
  * Settings, file presence, .vscode/*, and extensions come next.
  */
 export class WorkspaceFoldersInspector implements WorkspaceInspector {
-    public readonly id ="workspaceFolders";
+  public readonly id = "workspaceFolders";
 
-    public async inspect(
-     context: InspectionContext
-     ): Promise<ReturnType<WorkspaceFoldersInspector["buildPartialSnapshot"]>> { 
-        return this.buildPartialSnapshot(
-            context.workspaceFolders,
-            context.workspaceFile
-        );
+  public async inspect(
+    context: InspectionContext
+  ): Promise<ReturnType<WorkspaceFoldersInspector["buildPartialSnapshot"]>> {
+    return this.buildPartialSnapshot(
+      context.workspaceFolders,
+      context.workspaceFile
+    );
+  }
+
+  /*Convert vscode folders information into a proper format for inspect function to use*/
+  private buildPartialSnapshot(
+    workspaceFolders: readonly vscode.WorkspaceFolder[],
+    workspaceFile: vscode.Uri | undefined
+  ) {
+    return {
+      workspaceFolders: workspaceFolders.map((folder) => ({
+        name: folder.name,
+        uri: folder.uri.toString(),
+      })),
+      hasWorkspaceFile: Boolean(workspaceFile),
     };
-    
-    /*Convert vscode folders information into a proper format for inspect function to use*/
-    private buildPartialSnapshot(
-        workspaceFolders:readonly vscode.WorkspaceFolder[],
-        workspaceFile:vscode.Uri|undefined
-    ){
-        return {
-            workspaceFolders:workspaceFolders.map((folder)=>({
-                name:folder.name,
-                uri:folder.uri.toString()
-            })),
-            hasWorkspaceFile : Boolean(workspaceFile)
-        };
-    }
-    }
+  }
+}

@@ -12,6 +12,6 @@ export function createRuntime(
   return {
     context,
     output: vscode.window.createOutputChannel("VS Code Control Agent"),
-    extensionUri: context.extensionUri
+    extensionUri: context.extensionUri,
   };
 }

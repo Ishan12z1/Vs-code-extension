@@ -2,10 +2,7 @@ import * as vscode from "vscode";
 import type { WorkspaceSnapshot } from "@control-agent/contracts";
 import { findWorkspaceMarkerFiles } from "../fs/findWorkspaceMarkerFiles";
 import type { InspectionContext, WorkspaceInspector } from "../types";
-import {
-  STACK_MARKER_DEFINITIONS,
-  inferStackSignals
-} from "./stackMarkers";
+import { STACK_MARKER_DEFINITIONS, inferStackSignals } from "./stackMarkers";
 
 /**
  * Read-only inspector for workspace stack markers.
@@ -102,7 +99,7 @@ export class StackMarkerInspector implements WorkspaceInspector {
     return {
       detectedMarkers: [...detectedMarkers, ...inferred.detectedMarkers],
       relevantFiles,
-      notes: [...notes, ...inferred.notes]
+      notes: [...notes, ...inferred.notes],
     };
   }
 }

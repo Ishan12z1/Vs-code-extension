@@ -19,7 +19,7 @@ export function showWorkspaceSummaryPanel(
     vscode.ViewColumn.Active,
     {
       enableScripts: false,
-      retainContextWhenHidden: false
+      retainContextWhenHidden: false,
     }
   );
 

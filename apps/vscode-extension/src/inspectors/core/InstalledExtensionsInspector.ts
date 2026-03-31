@@ -12,9 +12,7 @@ import { TARGET_EXTENSION_IDS } from "./relevantVscodeSignals";
 export class InstalledExtensionsInspector implements WorkspaceInspector {
   public readonly id = "installedExtensions";
 
-  public async inspect(
-    _context: InspectionContext
-  ): Promise<{
+  public async inspect(_context: InspectionContext): Promise<{
     installedTargetExtensions: Array<{
       id: string;
       installed: boolean;
@@ -32,7 +30,7 @@ export class InstalledExtensionsInspector implements WorkspaceInspector {
           typeof extension?.packageJSON?.version === "string"
             ? extension.packageJSON.version
             : null,
-        isActive: extension?.isActive ?? false
+        isActive: extension?.isActive ?? false,
       };
     });
 

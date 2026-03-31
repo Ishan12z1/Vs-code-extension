@@ -10,9 +10,7 @@
         "--extensionDevelopmentPath=${workspaceFolder}/apps/vscode-extension",
         "--disable-extensions"
       ],
-      "outFiles": [
-        "${workspaceFolder}/apps/vscode-extension/dist/**/*.js"
-      ],
+      "outFiles": ["${workspaceFolder}/apps/vscode-extension/dist/**/*.js"],
       "preLaunchTask": "npm: build - apps/vscode-extension"
     }
   ]

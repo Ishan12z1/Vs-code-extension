@@ -5,53 +5,54 @@ import type {
   KeybindingSignal,
   VscodeFilesSnapshot,
   WorkspaceFolder,
-  WorkspaceSnapshot
+  WorkspaceSnapshot,
 } from "@control-agent/contracts";
 
 /*removes duplicates from a string array while preserving input order */
-function uniqueStrings(values:string[]):string[]{
-    return Array.from(new Set(values.map((value)=>value.trim()).filter(Boolean)));
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(
+    new Set(values.map((value) => value.trim()).filter(Boolean))
+  );
 }
 
 /**
  * Deduplicates workspace folders using name + uri as a stable key.
  */
-function uniqueWorkspaceFolders(values:WorkspaceFolder[]):WorkspaceFolder[]{
-    const seen = new Set<string>();
-    const result : WorkspaceFolder[] = [];
-    for (const folder of values) {
-        const key = '${folder.name}::${folder.uri}';
-        if (seen.has(key)) {
-            continue; 
-        }
-        seen.add(key);
-        result.push(folder);
+function uniqueWorkspaceFolders(values: WorkspaceFolder[]): WorkspaceFolder[] {
+  const seen = new Set<string>();
+  const result: WorkspaceFolder[] = [];
+  for (const folder of values) {
+    const key = "${folder.name}::${folder.uri}";
+    if (seen.has(key)) {
+      continue;
     }
-    return result;
-
+    seen.add(key);
+    result.push(folder);
+  }
+  return result;
 }
-
 
 /**
  * Deduplicates selected extension state by id.
  * Later entries win so newer inspector output can override older data.
  */
 function uniqueInstalledTargetExtensions(
-  values:InstalledTargetExtension[]
-):InstalledTargetExtension[]{
-  const byId=new Map<string,InstalledTargetExtension>();
-  for (const extension of values){
-    byId.set(extension.id,extension);
+  values: InstalledTargetExtension[]
+): InstalledTargetExtension[] {
+  const byId = new Map<string, InstalledTargetExtension>();
+  for (const extension of values) {
+    byId.set(extension.id, extension);
   }
   return Array.from(byId.values());
-
 }
 
 /**
  * Deduplicates keybinding/command signals by command.
  * Later entries win.
  */
-function uniqueKeybindingSignals(values: KeybindingSignal[]): KeybindingSignal[] {
+function uniqueKeybindingSignals(
+  values: KeybindingSignal[]
+): KeybindingSignal[] {
   const byCommand = new Map<string, KeybindingSignal>();
 
   for (const value of values) {
@@ -62,18 +63,17 @@ function uniqueKeybindingSignals(values: KeybindingSignal[]): KeybindingSignal[]
 }
 
 function mergeVscodeFiles(
-  current:VscodeFilesSnapshot,
-  patch:Partial<VscodeFilesSnapshot> | undefined
-):VscodeFilesSnapshot{
+  current: VscodeFilesSnapshot,
+  patch: Partial<VscodeFilesSnapshot> | undefined
+): VscodeFilesSnapshot {
   if (!patch) return current;
   return {
-    settingsJson:patch.settingsJson ?? current.settingsJson,
-    tasksJson:patch.tasksJson ?? current.tasksJson,
-    launchJson:patch.launchJson ?? current.launchJson,
-    extensionsJson:patch.extensionsJson ?? current.extensionsJson
+    settingsJson: patch.settingsJson ?? current.settingsJson,
+    tasksJson: patch.tasksJson ?? current.tasksJson,
+    launchJson: patch.launchJson ?? current.launchJson,
+    extensionsJson: patch.extensionsJson ?? current.extensionsJson,
   };
 }
-
 
 /**
  * Merges one inspector result into the current snapshot.
@@ -91,41 +91,42 @@ export function mergeWorkspaceSnapshot(
   return {
     workspaceFolders: uniqueWorkspaceFolders([
       ...current.workspaceFolders,
-      ...(patch.workspaceFolders ?? [])
+      ...(patch.workspaceFolders ?? []),
     ]),
-    hasWorkspaceFile: current.hasWorkspaceFile || (patch.hasWorkspaceFile ?? false),
+    hasWorkspaceFile:
+      current.hasWorkspaceFile || (patch.hasWorkspaceFile ?? false),
     vscodeFolderPresent:
       current.vscodeFolderPresent || (patch.vscodeFolderPresent ?? false),
     detectedMarkers: uniqueStrings([
       ...current.detectedMarkers,
-      ...(patch.detectedMarkers ?? [])
+      ...(patch.detectedMarkers ?? []),
     ]),
     installedExtensions: uniqueStrings([
       ...current.installedExtensions,
-      ...(patch.installedExtensions ?? [])
+      ...(patch.installedExtensions ?? []),
     ]),
     relevantFiles: uniqueStrings([
       ...current.relevantFiles,
-      ...(patch.relevantFiles ?? [])
+      ...(patch.relevantFiles ?? []),
     ]),
 
     relevantUserSettings: {
       ...current.relevantUserSettings,
-      ...(patch.relevantUserSettings ?? {})
+      ...(patch.relevantUserSettings ?? {}),
     },
     relevantWorkspaceSettings: {
       ...current.relevantWorkspaceSettings,
-      ...(patch.relevantWorkspaceSettings ?? {})
+      ...(patch.relevantWorkspaceSettings ?? {}),
     },
     installedTargetExtensions: uniqueInstalledTargetExtensions([
       ...current.installedTargetExtensions,
-      ...(patch.installedTargetExtensions ?? [])
+      ...(patch.installedTargetExtensions ?? []),
     ]),
     keybindingSignals: uniqueKeybindingSignals([
       ...current.keybindingSignals,
-      ...(patch.keybindingSignals ?? [])
+      ...(patch.keybindingSignals ?? []),
     ]),
-    vscodeFiles:mergeVscodeFiles(current.vscodeFiles,patch.vscodeFiles),
-    notes: uniqueStrings([...current.notes, ...(patch.notes ?? [])])
+    vscodeFiles: mergeVscodeFiles(current.vscodeFiles, patch.vscodeFiles),
+    notes: uniqueStrings([...current.notes, ...(patch.notes ?? [])]),
   };
 }

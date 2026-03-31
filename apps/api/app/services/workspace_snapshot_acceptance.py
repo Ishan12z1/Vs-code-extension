@@ -48,9 +48,7 @@ def _build_warnings(snapshot: WorkspaceSnapshot) -> list[str]:
 
     invalid_vscode_file_count = _count_invalid_vscode_files(snapshot)
     if invalid_vscode_file_count > 0:
-        warnings.append(
-            f"{invalid_vscode_file_count} managed .vscode file(s) were invalid JSONC."
-        )
+        warnings.append(f"{invalid_vscode_file_count} managed .vscode file(s) were invalid JSONC.")
 
     if not snapshot.vscodeFolderPresent:
         warnings.append("No managed .vscode folder state was detected in the snapshot.")

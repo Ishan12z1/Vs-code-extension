@@ -23,12 +23,8 @@ def _build_valid_snapshot_payload() -> dict:
             "detectedMarkers": ["marker:package.json", "stack:jsts"],
             "installedExtensions": [],
             "relevantFiles": ["package.json", ".vscode/settings.json"],
-            "relevantUserSettings": {
-                "editor.formatOnSave": True
-            },
-            "relevantWorkspaceSettings": {
-                "prettier.requireConfig": True
-            },
+            "relevantUserSettings": {"editor.formatOnSave": True},
+            "relevantWorkspaceSettings": {"prettier.requireConfig": True},
             "installedTargetExtensions": [
                 {
                     "id": "esbenp.prettier-vscode",

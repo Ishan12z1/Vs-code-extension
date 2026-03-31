@@ -1,12 +1,12 @@
 import type {
   KeybindingSignal,
   VscodeFileInspection,
-  WorkspaceSnapshot
+  WorkspaceSnapshot,
 } from "@control-agent/contracts";
 import type {
   SummaryListItem,
   SummarySection,
-  WorkspaceSummaryViewModel
+  WorkspaceSummaryViewModel,
 } from "./workspaceSummaryTypes";
 
 /**
@@ -37,20 +37,22 @@ function buildSettingsItems(
       value:
         typeof value === "string"
           ? value
-          : JSON.stringify(value, null, 0) ?? "null",
-      tone: "neutral"
+          : (JSON.stringify(value, null, 0) ?? "null"),
+      tone: "neutral",
     }));
 }
 
 /**
  * Formats one .vscode/* file inspection for the summary.
  */
-function formatVscodeFileInspection(file: VscodeFileInspection): SummaryListItem {
+function formatVscodeFileInspection(
+  file: VscodeFileInspection
+): SummaryListItem {
   if (!file.exists) {
     return {
       label: file.relativePath,
       value: "Not found",
-      tone: "muted"
+      tone: "muted",
     };
   }
 
@@ -58,14 +60,14 @@ function formatVscodeFileInspection(file: VscodeFileInspection): SummaryListItem
     return {
       label: file.relativePath,
       value: `Invalid JSONC (${file.parseError ?? "unknown parse error"})`,
-      tone: "warning"
+      tone: "warning",
     };
   }
 
   return {
     label: file.relativePath,
     value: "Present and parsed",
-    tone: "good"
+    tone: "good",
   };
 }
 
@@ -78,7 +80,7 @@ function buildCommandItems(signals: KeybindingSignal[]): SummaryListItem[] {
   return signals.map((signal) => ({
     label: signal.command,
     value: signal.available ? "Available" : "Unavailable",
-    tone: signal.available ? "good" : "warning"
+    tone: signal.available ? "good" : "warning",
   }));
 }
 
@@ -130,37 +132,37 @@ export function buildWorkspaceSummaryViewModel(
         value:
           snapshot.workspaceFolders.length > 0
             ? snapshot.workspaceFolders.map((folder) => folder.name).join(", ")
-            : "None"
+            : "None",
       },
       {
         label: "Workspace file open",
-        value: yesNo(snapshot.hasWorkspaceFile)
+        value: yesNo(snapshot.hasWorkspaceFile),
       },
       {
         label: ".vscode folder detected",
-        value: yesNo(snapshot.vscodeFolderPresent)
+        value: yesNo(snapshot.vscodeFolderPresent),
       },
       {
         label: "Detected markers",
-        value: joinOrFallback(snapshot.detectedMarkers)
+        value: joinOrFallback(snapshot.detectedMarkers),
       },
       {
         label: "Relevant files",
-        value: joinOrFallback(snapshot.relevantFiles)
-      }
-    ]
+        value: joinOrFallback(snapshot.relevantFiles),
+      },
+    ],
   };
 
   const userSettingsSection: SummarySection = {
     title: "Relevant user settings",
     items: buildSettingsItems("", snapshot.relevantUserSettings),
-    emptyMessage: "No relevant user-scope settings were detected."
+    emptyMessage: "No relevant user-scope settings were detected.",
   };
 
   const workspaceSettingsSection: SummarySection = {
     title: "Relevant workspace settings",
     items: buildSettingsItems("", snapshot.relevantWorkspaceSettings),
-    emptyMessage: "No relevant workspace-scope settings were detected."
+    emptyMessage: "No relevant workspace-scope settings were detected.",
   };
 
   const vscodeFilesSection: SummarySection = {
@@ -169,8 +171,8 @@ export function buildWorkspaceSummaryViewModel(
       formatVscodeFileInspection(snapshot.vscodeFiles.settingsJson),
       formatVscodeFileInspection(snapshot.vscodeFiles.tasksJson),
       formatVscodeFileInspection(snapshot.vscodeFiles.launchJson),
-      formatVscodeFileInspection(snapshot.vscodeFiles.extensionsJson)
-    ]
+      formatVscodeFileInspection(snapshot.vscodeFiles.extensionsJson),
+    ],
   };
 
   const extensionsSection: SummarySection = {
@@ -182,15 +184,15 @@ export function buildWorkspaceSummaryViewModel(
             extension.isActive ? " • active" : ""
           }`
         : "Not installed",
-      tone: extension.installed ? "good" : "warning"
+      tone: extension.installed ? "good" : "warning",
     })),
-    emptyMessage: "No target extension state was collected."
+    emptyMessage: "No target extension state was collected.",
   };
 
   const commandsSection: SummarySection = {
     title: "Relevant command availability",
     items: buildCommandItems(snapshot.keybindingSignals),
-    emptyMessage: "No command availability signals were collected."
+    emptyMessage: "No command availability signals were collected.",
   };
 
   const notesSection: SummarySection = {
@@ -198,9 +200,9 @@ export function buildWorkspaceSummaryViewModel(
     items: snapshot.notes.map((note) => ({
       label: "Note",
       value: note,
-      tone: note.toLowerCase().includes("invalid") ? "warning" : "neutral"
+      tone: note.toLowerCase().includes("invalid") ? "warning" : "neutral",
     })),
-    emptyMessage: "No additional notes."
+    emptyMessage: "No additional notes.",
   };
 
   return {
@@ -213,7 +215,7 @@ export function buildWorkspaceSummaryViewModel(
       vscodeFilesSection,
       extensionsSection,
       commandsSection,
-      notesSection
-    ]
+      notesSection,
+    ],
   };
 }

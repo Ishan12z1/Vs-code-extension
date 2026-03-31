@@ -1,6 +1,5 @@
 //This inspector checks whether key commands exist.
 
-
 import * as vscode from "vscode";
 import type { InspectionContext, WorkspaceInspector } from "../types";
 import { RELEVANT_COMMANDS } from "./relevantVscodeSignals";
@@ -13,9 +12,7 @@ import { RELEVANT_COMMANDS } from "./relevantVscodeSignals";
 export class CommandAvailabilityInspector implements WorkspaceInspector {
   public readonly id = "commandAvailability";
 
-  public async inspect(
-    _context: InspectionContext
-  ): Promise<{
+  public async inspect(_context: InspectionContext): Promise<{
     keybindingSignals: Array<{
       command: string;
       available: boolean;
@@ -31,11 +28,11 @@ export class CommandAvailabilityInspector implements WorkspaceInspector {
         command: item.command,
         available: availableCommands.has(item.command),
         keybinding: null,
-        note: item.note
+        note: item.note,
       })),
       notes: [
-        "Keybinding inspection is intentionally partial in this slice; command availability is recorded first."
-      ]
+        "Keybinding inspection is intentionally partial in this slice; command availability is recorded first.",
+      ],
     };
   }
 }

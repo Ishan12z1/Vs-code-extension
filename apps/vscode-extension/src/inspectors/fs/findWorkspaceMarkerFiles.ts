@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 /**
  * Finds root level marker files inside one workspace folder.
- * 
+ *
  *  * We keep this intentionally scoped:
  * - search is relative to one workspace folder
  * - patterns are root-level patterns from the current slice

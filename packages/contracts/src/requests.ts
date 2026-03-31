@@ -3,40 +3,36 @@ import { z } from "zod";
 /**
  * The request class defines what are the possible type of incoming user intent
  */
-export const RequestClassSchema =z.enum([
-    "explain",
-    "inspect",
-    "configure",
-    "repair",
-    "guide"
+export const RequestClassSchema = z.enum([
+  "explain",
+  "inspect",
+  "configure",
+  "repair",
+  "guide",
 ]);
 /**
  *  This generate a typescript type from the zod schema
  */
 export type RequestClass = z.infer<typeof RequestClassSchema>;
 
-
 /**
  * Basic user request payload passed to the backend later.
  */
-export const UserRequestSchema=z.object({
-    id:z.string().min(1),
-    text:z.string().min(1),
-    requestClassHint:RequestClassSchema.optional(),
-    created_at:z.string().datetime().optional()
-
+export const UserRequestSchema = z.object({
+  id: z.string().min(1),
+  text: z.string().min(1),
+  requestClassHint: RequestClassSchema.optional(),
+  created_at: z.string().datetime().optional(),
 });
 
 export type UserRequest = z.infer<typeof UserRequestSchema>;
 
-
 /**
  * This is the workspace schema for context helping
  */
-export const WorkspaceFolderSchema=z.object({
-    name:z.string().min(1),
-    uri:z.string().min(1)
-
+export const WorkspaceFolderSchema = z.object({
+  name: z.string().min(1),
+  uri: z.string().min(1),
 });
 
 export type WorkspaceFolder = z.infer<typeof WorkspaceFolderSchema>;
@@ -50,15 +46,16 @@ export type WorkspaceFolder = z.infer<typeof WorkspaceFolderSchema>;
  *
  */
 
-export const InstalledTargetExtensionSchema=z.object({
-    id:z.string().min(1),
-    installed:z.boolean(),
-    version:z.string().nullable().default(null),
-    isActive:z.boolean().default(false)
-
+export const InstalledTargetExtensionSchema = z.object({
+  id: z.string().min(1),
+  installed: z.boolean(),
+  version: z.string().nullable().default(null),
+  isActive: z.boolean().default(false),
 });
 
-export type InstalledTargetExtension = z.infer<typeof InstalledTargetExtensionSchema>;
+export type InstalledTargetExtension = z.infer<
+  typeof InstalledTargetExtensionSchema
+>;
 
 /**
  * Keybinding-related signal.
@@ -71,11 +68,10 @@ export const KeybindingSignalSchema = z.object({
   command: z.string().min(1),
   available: z.boolean(),
   keybinding: z.string().nullable().default(null),
-  note: z.string().nullable().default(null)
+  note: z.string().nullable().default(null),
 });
 
 export type KeybindingSignal = z.infer<typeof KeybindingSignalSchema>;
-
 
 /**
  * Parse status for a .vscode/* file inspection.
@@ -84,13 +80,15 @@ export type KeybindingSignal = z.infer<typeof KeybindingSignalSchema>;
  * - parsed: file exists and parsed as JSONC successfully
  * - invalid_jsonc: file exists but parsing failed
  */
-export const VscodeFileParsedStatusSchema=z.enum([
-    "not_found",
-    "parsed",
-    "invalid_jsonc"
+export const VscodeFileParsedStatusSchema = z.enum([
+  "not_found",
+  "parsed",
+  "invalid_jsonc",
 ]);
 
-export type VscodeFileParsedStatus = z.infer<typeof VscodeFileParsedStatusSchema>;
+export type VscodeFileParsedStatus = z.infer<
+  typeof VscodeFileParsedStatusSchema
+>;
 
 /**
  * Normalized inspection result for one .vscode/* file.
@@ -101,12 +99,12 @@ export type VscodeFileParsedStatus = z.infer<typeof VscodeFileParsedStatusSchema
  * - launch.json => object
  * - extensions.json => object
  */
-export const VscodeFileInspectionSchema=z.object({
-  relativePath:z.string().min(1),
-  exists:z.boolean(),
-  parseStatus:VscodeFileParsedStatusSchema,
-  json:z.unknown().nullable().default(null),
-  parseError:z.string().nullable().default(null)
+export const VscodeFileInspectionSchema = z.object({
+  relativePath: z.string().min(1),
+  exists: z.boolean(),
+  parseStatus: VscodeFileParsedStatusSchema,
+  json: z.unknown().nullable().default(null),
+  parseError: z.string().nullable().default(null),
 });
 
 export type VscodeFileInspection = z.infer<typeof VscodeFileInspectionSchema>;
@@ -117,7 +115,7 @@ export const VscodeFilesSnapshotSchema = z.object({
   settingsJson: VscodeFileInspectionSchema,
   tasksJson: VscodeFileInspectionSchema,
   launchJson: VscodeFileInspectionSchema,
-  extensionsJson: VscodeFileInspectionSchema
+  extensionsJson: VscodeFileInspectionSchema,
 });
 
 export type VscodeFilesSnapshot = z.infer<typeof VscodeFilesSnapshotSchema>;
@@ -142,11 +140,13 @@ export const WorkspaceSnapshotSchema = z.object({
 
   relevantUserSettings: z.record(z.string(), z.unknown()).default({}),
   relevantWorkspaceSettings: z.record(z.string(), z.unknown()).default({}),
-  installedTargetExtensions: z.array(InstalledTargetExtensionSchema).default([]),
+  installedTargetExtensions: z
+    .array(InstalledTargetExtensionSchema)
+    .default([]),
   keybindingSignals: z.array(KeybindingSignalSchema).default([]),
 
   vscodeFiles: VscodeFilesSnapshotSchema,
-  notes: z.array(z.string()).default([])
+  notes: z.array(z.string()).default([]),
 });
 
 export type WorkspaceSnapshot = z.infer<typeof WorkspaceSnapshotSchema>;

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import type {
   VscodeFileInspection,
-  WorkspaceSnapshot
+  WorkspaceSnapshot,
 } from "@control-agent/contracts";
 import { readWorkspaceTextFile } from "../fs/readWorkspaceFile";
 import { parseJsonc } from "../fs/parseJsonc";
@@ -26,8 +26,8 @@ export class VscodeConfigFilesInspector implements WorkspaceInspector {
     if (!primaryWorkspaceFolder) {
       return {
         notes: [
-          "No workspace folder is open, so .vscode/* file inspection was skipped."
-        ]
+          "No workspace folder is open, so .vscode/* file inspection was skipped.",
+        ],
       };
     }
 
@@ -64,18 +64,13 @@ export class VscodeConfigFilesInspector implements WorkspaceInspector {
       settingsJson,
       tasksJson,
       launchJson,
-      extensionsJson
+      extensionsJson,
     ].some((file) => file.exists);
 
     /**
      * Relevant files are the ones that actually exist right now.
      */
-    const relevantFiles = [
-      settingsJson,
-      tasksJson,
-      launchJson,
-      extensionsJson
-    ]
+    const relevantFiles = [settingsJson, tasksJson, launchJson, extensionsJson]
       .filter((file) => file.exists)
       .map((file) => file.relativePath);
 
@@ -84,7 +79,9 @@ export class VscodeConfigFilesInspector implements WorkspaceInspector {
      */
     for (const file of [settingsJson, tasksJson, launchJson, extensionsJson]) {
       if (file.parseStatus === "invalid_jsonc" && file.parseError) {
-        notes.push(`${file.relativePath} could not be parsed: ${file.parseError}`);
+        notes.push(
+          `${file.relativePath} could not be parsed: ${file.parseError}`
+        );
       }
     }
 
@@ -95,9 +92,9 @@ export class VscodeConfigFilesInspector implements WorkspaceInspector {
         settingsJson,
         tasksJson,
         launchJson,
-        extensionsJson
+        extensionsJson,
       },
-      notes
+      notes,
     };
   }
 
@@ -117,7 +114,7 @@ export class VscodeConfigFilesInspector implements WorkspaceInspector {
         exists: false,
         parseStatus: "not_found",
         json: null,
-        parseError: null
+        parseError: null,
       };
     }
 
@@ -129,7 +126,7 @@ export class VscodeConfigFilesInspector implements WorkspaceInspector {
         exists: true,
         parseStatus: "invalid_jsonc",
         json: null,
-        parseError: parsed.error
+        parseError: parsed.error,
       };
     }
 
@@ -138,7 +135,7 @@ export class VscodeConfigFilesInspector implements WorkspaceInspector {
       exists: true,
       parseStatus: "parsed",
       json: parsed.value,
-      parseError: null
+      parseError: null,
     };
   }
 }

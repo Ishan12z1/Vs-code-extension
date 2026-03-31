@@ -27,59 +27,57 @@ export const STACK_MARKER_DEFINITIONS: readonly StackMarkerDefinition[] = [
   {
     id: "packageJson",
     pattern: "package.json",
-    detectedMarker: "marker:package.json"
+    detectedMarker: "marker:package.json",
   },
   {
     id: "tsconfigJson",
     pattern: "tsconfig.json",
-    detectedMarker: "marker:tsconfig.json"
+    detectedMarker: "marker:tsconfig.json",
   },
   {
     id: "pyprojectToml",
     pattern: "pyproject.toml",
-    detectedMarker: "marker:pyproject.toml"
+    detectedMarker: "marker:pyproject.toml",
   },
   {
     id: "requirementsTxt",
     pattern: "requirements.txt",
-    detectedMarker: "marker:requirements.txt"
+    detectedMarker: "marker:requirements.txt",
   },
   {
     id: "eslintConfig",
     pattern: ".eslintrc*",
-    detectedMarker: "marker:.eslintrc"
+    detectedMarker: "marker:.eslintrc",
   },
   {
     id: "prettierConfig",
     pattern: ".prettierrc*",
-    detectedMarker: "marker:.prettierrc"
-  }
+    detectedMarker: "marker:.prettierrc",
+  },
 ];
-
 
 /**
  * Converts raw found marker ids into conservative inferred signals.
- * 
- * Important : 
+ *
+ * Important :
  * - package.json alone is only a weak JS/TS signal
  * - tsconfig / eslint / prettier are stronger JS/TS signals
  * - pyproject / requirements are strong Python signals
  */
 
-export function inferStackSignals(foundMarkerIds: ReadonlySet<string>):{
-    detectedMarkers:string[];
-    notes:string[];
-    
-}{
-    const detectedMarkers:string[]=[];
-    const notes:string[]=[];
+export function inferStackSignals(foundMarkerIds: ReadonlySet<string>): {
+  detectedMarkers: string[];
+  notes: string[];
+} {
+  const detectedMarkers: string[] = [];
+  const notes: string[] = [];
 
-    const hasPackageJson = foundMarkerIds.has("packageJson");
-    const hasTsconfig = foundMarkerIds.has("tsconfig");
-    const hasPyproject = foundMarkerIds.has("pyprojectToml");
-    const hasRequirements = foundMarkerIds.has("requirementsTxt");
-    const hasEslint = foundMarkerIds.has("eslintConfig");
-    const hasPrettier = foundMarkerIds.has("prettierConfig");
+  const hasPackageJson = foundMarkerIds.has("packageJson");
+  const hasTsconfig = foundMarkerIds.has("tsconfig");
+  const hasPyproject = foundMarkerIds.has("pyprojectToml");
+  const hasRequirements = foundMarkerIds.has("requirementsTxt");
+  const hasEslint = foundMarkerIds.has("eslintConfig");
+  const hasPrettier = foundMarkerIds.has("prettierConfig");
 
   /**
    * Python inference.
@@ -122,6 +120,6 @@ export function inferStackSignals(foundMarkerIds: ReadonlySet<string>):{
 
   return {
     detectedMarkers,
-    notes
+    notes,
   };
 }

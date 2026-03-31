@@ -22,6 +22,6 @@ export function createDefaultInspectors(): WorkspaceInspector[] {
     new VscodeConfigFilesInspector(),
     new StackMarkerInspector(),
     new InstalledExtensionsInspector(),
-    new CommandAvailabilityInspector()
+    new CommandAvailabilityInspector(),
   ];
 }
