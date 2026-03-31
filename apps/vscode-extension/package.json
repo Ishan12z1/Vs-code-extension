@@ -53,7 +53,7 @@
     "build": "tsc -p .",
     "watch": "tsc -w -p .",
     "test": "node -e \"console.log('No VS Code extension tests wired yet. This will be replaced later.')\"",
-    "lint": "node -e \"console.log('VS Code extension linting is not wired yet. A2 will replace this placeholder.')\"",
+    "lint": "eslint \"src/**/*.ts\"",
     "package": "npm run build"
   },
   "devDependencies": {

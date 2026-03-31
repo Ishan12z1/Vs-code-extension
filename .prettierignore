@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+.vscode-test
+.vs_code_agent
+apps/api/.venv
+apps/api/alembic/versions
+**/.pytest_cache/**
+**/.venv/**

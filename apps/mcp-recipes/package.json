@@ -11,7 +11,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "test": "node -e \"console.log('No MCP recipe service tests wired yet. This will be replaced later.')\"",
-    "lint": "node -e \"console.log('MCP recipe service linting is not wired yet. A2 will replace this placeholder.')\"",
+    "lint": "eslint \"src/**/*.ts\"",
     "package": "npm run build"
   },
   "dependencies": {
