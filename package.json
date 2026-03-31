@@ -46,7 +46,12 @@
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f postgres",
-    "db:psql": "docker compose exec postgres psql -U postgres -d control_agent"
+    "db:psql": "docker compose exec postgres psql -U postgres -d control_agent",
+    "verify:build": "npm run build",
+    "verify:lint": "npm run lint && npm run format:check",
+    "verify:test": "npm run test",
+    "verify:api-runtime": "python scripts/verify_api_runtime.py",
+    "verify:step1": "npm-run-all verify:build verify:lint verify:test"
   },
   "devDependencies": {
     "concurrently": "^9.0.1",
