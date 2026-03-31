@@ -8,13 +8,18 @@
     "dist"
   ],
   "scripts": {
+    "clean": "rimraf dist",
     "build": "tsc -p .",
-    "watch": "tsc -w -p ."
+    "watch": "tsc -w -p .",
+    "test": "node -e \"console.log('No contracts tests wired yet. This will be replaced later.')\"",
+    "lint": "node -e \"console.log('Contracts linting is not wired yet. A2 will replace this placeholder.')\"",
+    "package": "npm run build"
   },
   "dependencies": {
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "rimraf": "^5.0.0"
   }
 }

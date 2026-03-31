@@ -12,9 +12,40 @@
     "doc": "docs"
   },
   "scripts": {
-    "build": "npm run build -ws",
+    "clean": "npm run clean -w apps/vscode-extension && npm run clean -w apps/mcp-recipes && npm run clean -w packages/contracts",
+
+    "dev": "concurrently -n extension,api,mcp \"npm run dev:extension\" \"npm run dev:api\" \"npm run dev:mcp\"",
     "dev:extension": "npm run watch -w apps/vscode-extension",
-    "dev:mcp": "npm run dev -w apps/mcp-recipes"
+    "dev:api": "cd apps/api && python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+    "dev:mcp": "npm run dev -w apps/mcp-recipes",
+
+    "build": "npm-run-all build:*",
+    "build:contracts": "npm run build -w packages/contracts",
+    "build:extension": "npm run build -w apps/vscode-extension",
+    "build:mcp": "npm run build -w apps/mcp-recipes",
+    "build:api": "cd apps/api && python -m compileall app",
+
+    "test": "npm-run-all test:*",
+    "test:contracts": "npm run test -w packages/contracts",
+    "test:extension": "npm run test -w apps/vscode-extension",
+    "test:mcp": "npm run test -w apps/mcp-recipes",
+    "test:api": "cd apps/api && python -m pytest",
+
+    "lint": "npm-run-all lint:*",
+    "lint:contracts": "npm run lint -w packages/contracts",
+    "lint:extension": "npm run lint -w apps/vscode-extension",
+    "lint:mcp": "npm run lint -w apps/mcp-recipes",
+    "lint:api": "cd apps/api && python -m pytest -q",
+
+    "package": "npm-run-all package:*",
+    "package:contracts": "npm run build -w packages/contracts",
+    "package:extension": "npm run package -w apps/vscode-extension",
+    "package:mcp": "npm run build -w apps/mcp-recipes",
+    "package:api": "cd apps/api && python -m compileall app"
+  },
+   "devDependencies": {
+    "concurrently": "^9.0.1",
+    "npm-run-all": "^4.1.5"
   },
   "repository": {
     "type": "git",

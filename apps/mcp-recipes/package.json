@@ -5,10 +5,14 @@
   "description": "Recipe and configuration guidance service for VS Code Control Agent",
   "main": "dist/server.js",
   "scripts": {
+    "clean": "rimraf dist",
     "build": "tsc -p .",
     "watch": "tsc -w -p .",
     "dev": "tsx watch src/server.ts",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "node -e \"console.log('No MCP recipe service tests wired yet. This will be replaced later.')\"",
+    "lint": "node -e \"console.log('MCP recipe service linting is not wired yet. A2 will replace this placeholder.')\"",
+    "package": "npm run build"
   },
   "dependencies": {
     "express": "^4.19.2"
@@ -17,6 +21,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^20.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "rimraf": "^5.0.0"
   }
 }
