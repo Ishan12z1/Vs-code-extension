@@ -288,7 +288,7 @@ export function renderSidebarShellHtml(options: {
       </section>
 
       <section class="card hidden" id="resultCard">
-        <h2 id="resultTitle">Result</h2>
+        <h2 id="resultTitle">Response / plan area</h2>
         <p id="resultBody"></p>
       </section>
 
@@ -299,7 +299,7 @@ export function renderSidebarShellHtml(options: {
       </section>
 
       <section class="card">
-        <h2>Approval</h2>
+        <h2>Approval / apply</h2>
         <p id="approvalPlaceholder"></p>
       </section>
 
@@ -380,7 +380,7 @@ export function renderSidebarShellHtml(options: {
                       <div class="summary-label">\${escapeHtml(item.label)}</div>
                       <div class="summary-value">\${escapeHtml(item.value)}</div>
                     </div>
-                  \`
+                  \`,
                 )
                 .join("")
             : \`<p class="muted">\${escapeHtml(section.emptyMessage ?? "No data available.")}</p>\`;
@@ -410,12 +410,12 @@ export function renderSidebarShellHtml(options: {
         resultCard.classList.toggle("hidden", !hasResult);
 
         if (!hasResult) {
-          resultTitle.textContent = "Result";
+          resultTitle.textContent = "Response / plan area";
           resultBody.textContent = "";
           return;
         }
 
-        resultTitle.textContent = state.resultTitle ?? "Result";
+        resultTitle.textContent = state.resultTitle ?? "Response / plan area";
         resultBody.textContent = state.resultBody ?? "";
       }
 
@@ -489,8 +489,8 @@ export function renderSidebarShellHtml(options: {
         vscode.postMessage({
           type: "sidebar/updatePromptDraft",
           payload: {
-            prompt: promptInput.value
-          }
+            prompt: promptInput.value,
+          },
         });
       });
 
@@ -498,26 +498,26 @@ export function renderSidebarShellHtml(options: {
         vscode.postMessage({
           type: "sidebar/submitPrompt",
           payload: {
-            prompt: promptInput.value
-          }
+            prompt: promptInput.value,
+          },
         });
       });
 
       explainWorkspaceButton.addEventListener("click", () => {
         vscode.postMessage({
-          type: "sidebar/triggerExplainWorkspace"
+          type: "sidebar/triggerExplainWorkspace",
         });
       });
 
       showHomeButton.addEventListener("click", () => {
         vscode.postMessage({
-          type: "sidebar/showHome"
+          type: "sidebar/showHome",
         });
       });
 
       requestStateButton.addEventListener("click", () => {
         vscode.postMessage({
-          type: "sidebar/requestState"
+          type: "sidebar/requestState",
         });
       });
 
@@ -525,14 +525,14 @@ export function renderSidebarShellHtml(options: {
         vscode.postMessage({
           type: "sidebar/ping",
           payload: {
-            sentAt: new Date().toISOString()
-          }
+            sentAt: new Date().toISOString(),
+          },
         });
       });
 
       refreshShellButton.addEventListener("click", () => {
         vscode.postMessage({
-          type: "sidebar/refreshShell"
+          type: "sidebar/refreshShell",
         });
       });
 
@@ -556,7 +556,7 @@ export function renderSidebarShellHtml(options: {
       renderState(currentState);
 
       vscode.postMessage({
-        type: "sidebar/ready"
+        type: "sidebar/ready",
       });
     </script>
   </body>

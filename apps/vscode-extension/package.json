@@ -74,10 +74,11 @@
     }
   },
   "scripts": {
-    "clean": "rimraf dist",
+    "clean": "rimraf dist dist-tests",
     "build": "tsc -p .",
+    "build:test": "tsc -p tsconfig.test.json",
     "watch": "tsc -w -p .",
-    "test": "node -e \"console.log('No VS Code extension tests wired yet. This will be replaced later.')\"",
+    "test": "npm run build:test && node --test \"dist-tests/tests/**/*.js\"",
     "lint": "eslint \"src/**/*.ts\"",
     "package": "npm run build"
   },

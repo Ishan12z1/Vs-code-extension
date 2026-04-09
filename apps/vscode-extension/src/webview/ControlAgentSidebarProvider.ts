@@ -4,6 +4,7 @@ import { createDefaultInspectors } from "../inspectors/createDefaultInspectors";
 import { WorkspaceSnapshotBuilder } from "../inspectors/WorkspaceSnapshotBuilder";
 import type { ExtensionRuntime } from "../state/runtime";
 import {
+  DEFAULT_APPROVAL_PLACEHOLDER,
   createInitialSidebarHostState,
   type SidebarHostState,
   type SidebarShellConfig,
@@ -12,6 +13,10 @@ import type {
   SidebarHostToWebviewMessage,
   SidebarWebviewToHostMessage,
 } from "./sidebarProtocol";
+import {
+  classifyShellPrompt,
+  isExplainLikePrompt,
+} from "./classifyShellPrompt";
 import { renderSidebarShellHtml } from "./renderSidebarShellHtml";
 
 /**
@@ -120,20 +125,6 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
         message: `Shell configuration refreshed. Backend URL is ${nextConfig.backendUrl}.`,
       },
     });
-  }
-
-  /**
-   * Small helper for explain-like prompt detection.
-   */
-  private isExplainPrompt(prompt: string): boolean {
-    const normalized = prompt.toLowerCase();
-
-    return (
-      normalized.includes("explain") ||
-      normalized.includes("current vscode setup") ||
-      normalized.includes("current setup") ||
-      normalized.includes("inspect")
-    );
   }
 
   /**
@@ -247,28 +238,41 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
       logs: this.buildNextLogs(`[sidebar] prompt submitted: ${trimmedPrompt}`),
     });
 
-    if (this.isExplainPrompt(trimmedPrompt)) {
+    if (isExplainLikePrompt(trimmedPrompt)) {
       await this.runExplainWorkspace(`prompt submit -> ${trimmedPrompt}`);
       return;
     }
+
+    const classification = classifyShellPrompt(trimmedPrompt);
+    const approvalPlaceholder =
+      classification.route === "configure" || classification.route === "repair"
+        ? "This looks like a change-oriented request. Preview/apply/approval are deferred to later steps, so no local changes were made."
+        : DEFAULT_APPROVAL_PLACEHOLDER;
 
     await this.updateState({
       mode: "showing-result",
       screen: "result",
       explanation: null,
-      resultTitle: "Prompt captured by sidebar shell",
-      resultBody:
-        `You submitted:\n\n"${trimmedPrompt}"\n\n` +
-        "The full planner flow is not wired yet. " +
-        "At this stage, the shell can capture prompts and route explain-style requests into the existing read-only explanation flow.",
-      statusMessage: "Prompt captured. Planner flow not wired yet.",
-      lastEvent: "generic prompt placeholder result",
+      resultTitle: `${classification.label} request captured`,
+      resultBody: [
+        `Prompt: "${trimmedPrompt}"`,
+        "",
+        `Detected route: ${classification.label}`,
+        "Shell action: captured locally in the sidebar state model",
+        `Next step: ${classification.nextStep}`,
+        "",
+        "Planner, preview, apply, and approval are intentionally deferred to later steps.",
+        "No local changes were made.",
+      ].join("\n"),
+      approvalPlaceholder,
+      statusMessage: `${classification.label} request captured in sidebar shell.`,
+      lastEvent: "request captured in shell",
       errorMessage: null,
       activityItems: this.buildNextActivityItems(
-        "Rendered placeholder result for submitted prompt."
+        `Captured ${classification.label.toLowerCase()} request in shell.`
       ),
       logs: this.buildNextLogs(
-        "[sidebar] rendered placeholder result for non-explain prompt"
+        `[sidebar] captured non-explain prompt (${classification.route})`
       ),
     });
 
@@ -292,6 +296,7 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
       explanation: null,
       resultTitle: null,
       resultBody: null,
+      approvalPlaceholder: DEFAULT_APPROVAL_PLACEHOLDER,
       errorMessage: null,
       activityItems: this.buildNextActivityItems("Returned to sidebar home."),
       logs: this.buildNextLogs("[sidebar] returned to home screen"),

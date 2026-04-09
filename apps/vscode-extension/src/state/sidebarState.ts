@@ -1,5 +1,9 @@
 import type { WorkspaceSummaryViewModel } from "../explain/workspaceSummaryTypes";
 
+export const DEFAULT_APPROVAL_PLACEHOLDER =
+  "Preview, apply, and approval controls are intentionally not wired yet. " +
+  "This shell currently captures requests and renders read-only explanations.";
+
 /**
  * Sidebar mode for the shell.
  */
@@ -94,8 +98,7 @@ export function createInitialSidebarHostState(
     explanation: null,
     resultTitle: null,
     resultBody: null,
-    approvalPlaceholder:
-      "Approval flow is not wired yet. Risk review and apply controls will appear here later.",
+    approvalPlaceholder: DEFAULT_APPROVAL_PLACEHOLDER,
     logs: ["Sidebar shell initialized."],
     errorMessage: null,
   };

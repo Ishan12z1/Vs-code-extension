@@ -31,7 +31,7 @@
     "lint:contracts": "npm run lint -w packages/contracts",
     "lint:extension": "npm run lint -w apps/vscode-extension",
     "lint:mcp": "npm run lint -w apps/mcp-recipes",
-    "lint:api": "cd apps/api && python -m pytest -q",
+    "lint:api": "cd apps/api && python -m ruff check .",
     "format": "prettier --write . && cd apps/api && python -m ruff format .",
     "format:check": "prettier --check . && cd apps/api && python -m ruff format --check .",
     "package": "npm-run-all package:*",
@@ -52,7 +52,7 @@
     "verify:test": "npm run test",
     "verify:api-runtime": "python scripts/verify_api_runtime.py",
     "verify:stepB": "npm run build -w apps/vscode-extension && npm run lint -w apps/vscode-extension && npm run test -w apps/vscode-extension",
-    "verify:step1": "npm-run-all verify:build verify:lint verify:test"
+    "verify:step1": "npm-run-all verify:build verify:lint verify:test verify:api-runtime"
   },
   "devDependencies": {
     "concurrently": "^9.0.1",

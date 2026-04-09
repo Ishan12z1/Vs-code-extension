@@ -8,3 +8,4 @@ vscode_control_agent_api.egg-info
 dist/
 .env.example
 .env
+dist-tests/
