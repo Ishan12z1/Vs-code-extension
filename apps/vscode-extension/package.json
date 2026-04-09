@@ -13,11 +13,32 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
+    "onStartupFinished",
+    "onView:controlAgent.sidebarView",
     "onCommand:controlAgent.hello",
     "onCommand:controlAgent.inspectWorkspaceSnapshot",
-    "onCommand:controlAgent.explainWorkspace"
+    "onCommand:controlAgent.explainWorkspace",
+    "onCommand:controlAgent.openSidebar"
   ],
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "controlAgent",
+          "title": "Control Agent",
+          "icon": "media/control-agent.svg"
+        }
+      ]
+    },
+    "views": {
+      "controlAgent": [
+        {
+          "type": "webview",
+          "id": "controlAgent.sidebarView",
+          "name": "Assistant"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "controlAgent.hello",
@@ -30,6 +51,10 @@
       {
         "command": "controlAgent.explainWorkspace",
         "title": "Control Agent: Explain Current VS Code Setup"
+      },
+      {
+        "command": "controlAgent.openSidebar",
+        "title": "Control Agent: Open Sidebar"
       }
     ],
     "configuration": {
