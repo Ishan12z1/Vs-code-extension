@@ -1,0 +1,33 @@
+import type { SidebarHostState } from "../state/sidebarState";
+
+/**
+ * Messages the webview can send to the extension host.
+ */
+export type SidebarWebviewToHostMessage =
+  | {
+      type: "sidebar/ready";
+    }
+  | {
+      type: "sidebar/requestState";
+    }
+  | {
+      type: "sidebar/ping";
+      payload: {
+        sentAt: string;
+      };
+    };
+
+/**
+ * Messages the extension host can send to the webview.
+ */
+export type SidebarHostToWebviewMessage =
+  | {
+      type: "sidebar/stateUpdated";
+      payload: SidebarHostState;
+    }
+  | {
+      type: "sidebar/ack";
+      payload: {
+        message: string;
+      };
+    };

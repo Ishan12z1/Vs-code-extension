@@ -10,10 +10,7 @@ import { CONTROL_AGENT_SIDEBAR_VIEW_ID } from "./webview/sidebarViewId";
 /**
  * Extension entry point.
  *
- * B1 goal:
- * - keep startup simple
- * - register the real sidebar shell
- * - keep existing commands working
+ * B2 keeps startup simple while wiring the live sidebar bridge.
  */
 export function activate(context: vscode.ExtensionContext): void {
   const runtime = createRuntime(context);
@@ -22,10 +19,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(runtime.output);
 
-  /**
-   * Register the real sidebar provider first.
-   * This gives the extension a real home in the VS Code UI.
-   */
   const sidebarProvider = new ControlAgentSidebarProvider(runtime);
 
   context.subscriptions.push(
@@ -35,21 +28,9 @@ export function activate(context: vscode.ExtensionContext): void {
     )
   );
 
-  /**
-   * Existing bootstrap/debug commands.
-   */
   context.subscriptions.push(registerHelloCommand(runtime));
   context.subscriptions.push(registerInspectWorkspaceSnapshotCommand(runtime));
-
-  /**
-   * Existing explain command still works for now.
-   * B3 will move its main UX into the sidebar shell.
-   */
   context.subscriptions.push(registerExplainWorkspaceCommand(runtime));
-
-  /**
-   * New shell entry command.
-   */
   context.subscriptions.push(
     registerOpenSidebarCommand(runtime, sidebarProvider)
   );
