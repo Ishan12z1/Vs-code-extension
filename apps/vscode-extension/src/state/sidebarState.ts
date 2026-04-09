@@ -7,17 +7,22 @@ export type SidebarMode = "idle" | "loading" | "showing-result";
 
 /**
  * Which main screen is active.
- *
- * - home: default shell
- * - explanation: read-only workspace explanation
- * - result: generic placeholder result for submitted prompts
  */
 export type SidebarScreen = "home" | "explanation" | "result";
 
 /**
+ * Sidebar-visible extension configuration.
+ *
+ * B5 uses this to make the shell reflect actual extension settings.
+ */
+export interface SidebarShellConfig {
+  readonly backendUrl: string;
+  readonly debugLogsEnabled: boolean;
+}
+
+/**
  * Extension-host-owned sidebar state.
  *
- * This stays the source of truth for the sidebar.
  * The webview only renders what the host sends.
  */
 export interface SidebarHostState {
@@ -27,28 +32,29 @@ export interface SidebarHostState {
   readonly viewMounted: boolean;
   readonly statusMessage: string;
   readonly lastEvent: string | null;
-  readonly debugLogsEnabled: boolean;
+
+  /**
+   * Current visible shell configuration.
+   */
+  readonly config: SidebarShellConfig;
 
   /**
    * Prompt draft held by the shell.
-   * B4 uses this to make the sidebar feel like a real assistant surface.
    */
   readonly promptDraft: string;
 
   /**
    * Lightweight activity feed shown in the sidebar.
-   * Keep this simple for now.
    */
   readonly activityItems: string[];
 
   /**
-   * Read-only explanation result reused from B3.
+   * Read-only explanation result reused from earlier slices.
    */
   readonly explanation: WorkspaceSummaryViewModel | null;
 
   /**
    * Generic result area for non-explain prompts.
-   * This is still placeholder-only in B4.
    */
   readonly resultTitle: string | null;
   readonly resultBody: string | null;
@@ -73,7 +79,7 @@ export interface SidebarHostState {
  * Default state used before the sidebar view is mounted.
  */
 export function createInitialSidebarHostState(
-  debugLogsEnabled: boolean
+  config: SidebarShellConfig
 ): SidebarHostState {
   return {
     mode: "idle",
@@ -82,7 +88,7 @@ export function createInitialSidebarHostState(
     viewMounted: false,
     statusMessage: "Sidebar shell created. Waiting for webview handshake.",
     lastEvent: null,
-    debugLogsEnabled,
+    config,
     promptDraft: "",
     activityItems: ["Sidebar shell initialized."],
     explanation: null,

@@ -6,6 +6,7 @@ import type { ExtensionRuntime } from "../state/runtime";
 import {
   createInitialSidebarHostState,
   type SidebarHostState,
+  type SidebarShellConfig,
 } from "../state/sidebarState";
 import type {
   SidebarHostToWebviewMessage,
@@ -16,22 +17,18 @@ import { renderSidebarShellHtml } from "./renderSidebarShellHtml";
 /**
  * Real sidebar provider for the extension shell.
  *
- * B4 adds:
- * - prompt submission handling
- * - activity updates
- * - generic result rendering
- * - approval/log placeholders in host state
+ * B5 adds:
+ * - visible shell config
+ * - refresh behavior
+ * - config-change awareness
+ * - polish around logs and status
  */
 export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | undefined;
   private state: SidebarHostState;
 
   public constructor(private readonly runtime: ExtensionRuntime) {
-    const config = vscode.workspace.getConfiguration("controlAgent");
-
-    this.state = createInitialSidebarHostState(
-      config.get<boolean>("enableDebugLogs", false)
-    );
+    this.state = createInitialSidebarHostState(this.readShellConfig());
   }
 
   public getView(): vscode.WebviewView | undefined {
@@ -43,9 +40,19 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   /**
+   * Reads the current extension configuration that should be visible in the shell.
+   */
+  private readShellConfig(): SidebarShellConfig {
+    const config = vscode.workspace.getConfiguration("controlAgent");
+
+    return {
+      backendUrl: config.get<string>("backendUrl", "http://127.0.0.1:8000"),
+      debugLogsEnabled: config.get<boolean>("enableDebugLogs", false),
+    };
+  }
+
+  /**
    * Central state updater.
-   *
-   * We keep state updates in one place so B4 stays predictable.
    */
   public async updateState(patch: Partial<SidebarHostState>): Promise<void> {
     this.state = {
@@ -86,10 +93,37 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Small helper for explain-like prompt detection.
+   * B5 config refresh hook.
    *
-   * B4 does not implement the full planner.
-   * It only decides whether to reuse the existing explain flow.
+   * This is used both:
+   * - from the sidebar UI refresh action
+   * - from extension-side configuration change events
+   */
+  public async refreshShellConfiguration(
+    reason = "shell configuration refreshed"
+  ): Promise<void> {
+    const nextConfig = this.readShellConfig();
+
+    await this.updateState({
+      config: nextConfig,
+      statusMessage: "Shell configuration refreshed.",
+      lastEvent: reason,
+      activityItems: this.buildNextActivityItems(
+        "Refreshed visible shell configuration."
+      ),
+      logs: this.buildNextLogs(`[sidebar] ${reason}`),
+    });
+
+    await this.postMessage({
+      type: "sidebar/ack",
+      payload: {
+        message: `Shell configuration refreshed. Backend URL is ${nextConfig.backendUrl}.`,
+      },
+    });
+  }
+
+  /**
+   * Small helper for explain-like prompt detection.
    */
   private isExplainPrompt(prompt: string): boolean {
     const normalized = prompt.toLowerCase();
@@ -103,7 +137,7 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * B3 flow, kept as the main read-only explanation path.
+   * B3/B4 explain flow, kept as the main read-only explanation path.
    */
   public async runExplainWorkspace(
     trigger = "explain workspace action"
@@ -184,12 +218,6 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
 
   /**
    * B4 shell submit path.
-   *
-   * Current behavior:
-   * - explain-like prompts reuse the existing explain flow
-   * - other prompts show a placeholder result inside the sidebar
-   *
-   * This is intentional. Step 6 planner logic does not belong here yet.
    */
   public async submitPrompt(prompt: string): Promise<void> {
     const trimmedPrompt = prompt.trim();
@@ -283,6 +311,7 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
 
     this.state = {
       ...this.state,
+      config: this.readShellConfig(),
       viewMounted: true,
       statusMessage: "Sidebar view mounted. Waiting for webview ready signal.",
       lastEvent: "sidebar view resolved",
@@ -292,7 +321,7 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = renderSidebarShellHtml({
       title: "Control Agent",
       subtitle:
-        "VS Code-native assistant shell. Prompt, activity, result, approval, and logs now live here.",
+        "VS Code-native assistant shell. Sidebar focus, visible config, and verification are now polished.",
       initialState: this.state,
     });
 
@@ -365,10 +394,6 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
       }
 
       case "sidebar/updatePromptDraft": {
-        /**
-         * Keep the host-side prompt draft in sync, but do not spam the UI
-         * with a full rerender on every keypress.
-         */
         this.state = {
           ...this.state,
           promptDraft: message.payload.prompt,
@@ -388,6 +413,11 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
 
       case "sidebar/showHome": {
         await this.showHome();
+        return;
+      }
+
+      case "sidebar/refreshShell": {
+        await this.refreshShellConfiguration("manual shell refresh");
         return;
       }
     }

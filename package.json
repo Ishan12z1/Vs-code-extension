@@ -51,6 +51,7 @@
     "verify:lint": "npm run lint && npm run format:check",
     "verify:test": "npm run test",
     "verify:api-runtime": "python scripts/verify_api_runtime.py",
+    "verify:stepB": "npm run build -w apps/vscode-extension && npm run lint -w apps/vscode-extension && npm run test -w apps/vscode-extension",
     "verify:step1": "npm-run-all verify:build verify:lint verify:test"
   },
   "devDependencies": {

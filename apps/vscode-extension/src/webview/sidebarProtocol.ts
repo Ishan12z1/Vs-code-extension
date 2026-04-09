@@ -33,6 +33,9 @@ export type SidebarWebviewToHostMessage =
     }
   | {
       type: "sidebar/showHome";
+    }
+  | {
+      type: "sidebar/refreshShell";
     };
 
 /**

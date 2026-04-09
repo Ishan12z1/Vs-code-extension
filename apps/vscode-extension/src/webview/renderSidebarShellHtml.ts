@@ -20,15 +20,13 @@ function serializeForInlineScript(value: unknown): string {
 }
 
 /**
- * Renders the B4 sidebar shell.
+ * Renders the B5 sidebar shell.
  *
- * New in B4:
- * - prompt input
- * - submit button
- * - activity area
- * - result area
- * - approval placeholder
- * - logs area
+ * B5 keeps the B4 shell, but adds:
+ * - visible config card
+ * - refresh shell action
+ * - host acknowledgement area
+ * - theme-safe cleanup
  */
 export function renderSidebarShellHtml(options: {
   title: string;
@@ -74,7 +72,8 @@ export function renderSidebarShellHtml(options: {
       }
 
       .hero h1,
-      .card h2 {
+      .card h2,
+      .summary-section h3 {
         margin: 0 0 8px;
       }
 
@@ -91,7 +90,8 @@ export function renderSidebarShellHtml(options: {
       }
 
       .status-grid,
-      .section-grid {
+      .section-grid,
+      .stack {
         display: grid;
         gap: 10px;
       }
@@ -117,6 +117,8 @@ export function renderSidebarShellHtml(options: {
 
       .status-value {
         font-weight: 600;
+        line-height: 1.4;
+        word-break: break-word;
       }
 
       .summary-item {
@@ -177,11 +179,6 @@ export function renderSidebarShellHtml(options: {
         font: inherit;
       }
 
-      .stack {
-        display: grid;
-        gap: 10px;
-      }
-
       .list {
         margin: 0;
         padding-left: 18px;
@@ -202,6 +199,14 @@ export function renderSidebarShellHtml(options: {
         padding: 10px;
         color: var(--vscode-errorForeground);
         background: var(--vscode-inputValidation-errorBackground, transparent);
+      }
+
+      .ack-box {
+        border: 1px solid var(--vscode-panel-border);
+        border-radius: 8px;
+        padding: 10px;
+        background: var(--vscode-sideBar-background);
+        color: var(--vscode-descriptionForeground);
       }
     </style>
   </head>
@@ -259,6 +264,16 @@ export function renderSidebarShellHtml(options: {
             <div class="status-label">Last event</div>
             <div class="status-value muted" id="lastEventValue">None</div>
           </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Shell configuration</h2>
+        <div class="status-grid">
+          <div class="status-row">
+            <div class="status-label">Backend URL</div>
+            <div class="status-value" id="backendUrlValue">Unknown</div>
+          </div>
 
           <div class="status-row">
             <div class="status-label">Debug logs enabled</div>
@@ -299,11 +314,13 @@ export function renderSidebarShellHtml(options: {
       </section>
 
       <section class="card">
-        <h2>Bridge controls</h2>
-        <div class="controls">
+        <h2>Shell tools</h2>
+        <div class="controls" style="margin-bottom: 10px;">
           <button id="requestStateButton" type="button">Request current state</button>
           <button id="pingHostButton" type="button">Send ping to host</button>
+          <button id="refreshShellButton" type="button">Refresh shell state</button>
         </div>
+        <div class="ack-box" id="ackValue">No host acknowledgements yet.</div>
       </section>
     </div>
 
@@ -317,6 +334,7 @@ export function renderSidebarShellHtml(options: {
       const showHomeButton = document.getElementById("showHomeButton");
       const requestStateButton = document.getElementById("requestStateButton");
       const pingHostButton = document.getElementById("pingHostButton");
+      const refreshShellButton = document.getElementById("refreshShellButton");
 
       const modeValue = document.getElementById("modeValue");
       const screenValue = document.getElementById("screenValue");
@@ -324,6 +342,7 @@ export function renderSidebarShellHtml(options: {
       const mountedValue = document.getElementById("mountedValue");
       const statusMessageValue = document.getElementById("statusMessageValue");
       const lastEventValue = document.getElementById("lastEventValue");
+      const backendUrlValue = document.getElementById("backendUrlValue");
       const debugLogsValue = document.getElementById("debugLogsValue");
 
       const activityList = document.getElementById("activityList");
@@ -340,6 +359,7 @@ export function renderSidebarShellHtml(options: {
       const errorCard = document.getElementById("errorCard");
       const errorValue = document.getElementById("errorValue");
       const logsValue = document.getElementById("logsValue");
+      const ackValue = document.getElementById("ackValue");
 
       function escapeHtml(value) {
         return String(value)
@@ -442,17 +462,19 @@ export function renderSidebarShellHtml(options: {
         currentState = state;
 
         promptInput.value = state.promptDraft;
-
         modeValue.textContent = state.mode;
         screenValue.textContent = state.screen;
         readyValue.textContent = state.ready ? "Yes" : "No";
         mountedValue.textContent = state.viewMounted ? "Yes" : "No";
         statusMessageValue.textContent = state.statusMessage;
         lastEventValue.textContent = state.lastEvent ?? "None";
-        debugLogsValue.textContent = state.debugLogsEnabled ? "Yes" : "No";
+        backendUrlValue.textContent = state.config.backendUrl;
+        debugLogsValue.textContent = state.config.debugLogsEnabled ? "Yes" : "No";
 
         readyValue.className = "status-value " + (state.ready ? "good" : "warning");
         mountedValue.className = "status-value " + (state.viewMounted ? "good" : "warning");
+        debugLogsValue.className =
+          "status-value " + (state.config.debugLogsEnabled ? "good" : "muted");
 
         approvalPlaceholder.textContent = state.approvalPlaceholder;
 
@@ -508,6 +530,12 @@ export function renderSidebarShellHtml(options: {
         });
       });
 
+      refreshShellButton.addEventListener("click", () => {
+        vscode.postMessage({
+          type: "sidebar/refreshShell"
+        });
+      });
+
       window.addEventListener("message", (event) => {
         const message = event.data;
 
@@ -521,8 +549,7 @@ export function renderSidebarShellHtml(options: {
         }
 
         if (message.type === "sidebar/ack") {
-          const previousLogs = Array.isArray(currentState.logs) ? currentState.logs : [];
-          renderLogs([...previousLogs, message.payload.message]);
+          ackValue.textContent = message.payload.message;
         }
       });
 

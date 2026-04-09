@@ -46,7 +46,9 @@ const sidebarViewId_1 = require("./webview/sidebarViewId");
 /**
  * Extension entry point.
  *
- * B3 keeps the sidebar as the main shell and moves explain into it.
+ * B5 adds:
+ * - configuration change awareness for the sidebar shell
+ * - keeps the sidebar as the main extension surface
  */
 function activate(context) {
     const runtime = (0, runtime_1.createRuntime)(context);
@@ -58,6 +60,16 @@ function activate(context) {
     context.subscriptions.push((0, registerInspectWorkspaceSnapshotCommand_1.registerInspectWorkspaceSnapshotCommand)(runtime));
     context.subscriptions.push((0, registerOpenSidebarCommand_1.registerOpenSidebarCommand)(runtime, sidebarProvider));
     context.subscriptions.push((0, registerExplainWorkspaceCommand_1.registerExplainWorkspaceCommand)(runtime, sidebarProvider));
+    /**
+     * Keep the visible shell configuration in sync when controlAgent settings change.
+     */
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
+        if (!event.affectsConfiguration("controlAgent")) {
+            return;
+        }
+        runtime.output.appendLine("[sidebar] controlAgent configuration changed");
+        void sidebarProvider.refreshShellConfiguration("configuration changed");
+    }));
     runtime.output.appendLine("VS Code Control Agent activated.");
 }
 function deactivate() {
