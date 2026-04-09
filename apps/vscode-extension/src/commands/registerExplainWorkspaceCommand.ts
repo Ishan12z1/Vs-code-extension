@@ -1,36 +1,32 @@
 import * as vscode from "vscode";
 import type { ExtensionRuntime } from "../state/runtime";
-import { buildWorkspaceSummaryViewModel } from "../explain/buildWorkspaceSummaryViewModel";
-import { createDefaultInspectors } from "../inspectors/createDefaultInspectors";
-import { WorkspaceSnapshotBuilder } from "../inspectors/WorkspaceSnapshotBuilder";
-import { showWorkspaceSummaryPanel } from "../webview/showWorkspaceSummaryPanel";
+import type { ControlAgentSidebarProvider } from "../webview/ControlAgentSidebarProvider";
+import { CONTROL_AGENT_SIDEBAR_VIEW_ID } from "../webview/sidebarViewId";
 
 /**
- * User facing step command:
- * It:
- * 1. builds a fresh read only snapshot
- * 2. converts snapshot into a UI view model
- * 3. opens a summary panel
+ * User-facing explain command.
+ *
+ * B3 changes the main behavior:
+ * - focus the real sidebar
+ * - run the explain flow inside the sidebar
+ *
+ * This replaces the separate-panel path as the main UX.
  */
-
 export function registerExplainWorkspaceCommand(
-  runtime: ExtensionRuntime
+  runtime: ExtensionRuntime,
+  sidebarProvider: ControlAgentSidebarProvider
 ): vscode.Disposable {
   return vscode.commands.registerCommand(
     "controlAgent.explainWorkspace",
     async () => {
-      runtime.output.appendLine("[explain] building workspace snapshot");
+      runtime.output.appendLine("[explain] focusing sidebar for explain flow");
 
-      const builder = new WorkspaceSnapshotBuilder(
-        runtime,
-        createDefaultInspectors()
+      await vscode.commands.executeCommand(
+        `${CONTROL_AGENT_SIDEBAR_VIEW_ID}.focus`
       );
 
-      const snapshot = await builder.build();
-      const viewModel = buildWorkspaceSummaryViewModel(snapshot);
-
-      runtime.output.appendLine("[explain] workspace summary ready");
-      showWorkspaceSummaryPanel(runtime, viewModel);
+      sidebarProvider.reveal(false);
+      await sidebarProvider.runExplainWorkspace();
     }
   );
 }

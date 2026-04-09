@@ -10,7 +10,7 @@ import { CONTROL_AGENT_SIDEBAR_VIEW_ID } from "./webview/sidebarViewId";
 /**
  * Extension entry point.
  *
- * B2 keeps startup simple while wiring the live sidebar bridge.
+ * B3 keeps the sidebar as the main shell and moves explain into it.
  */
 export function activate(context: vscode.ExtensionContext): void {
   const runtime = createRuntime(context);
@@ -30,9 +30,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(registerHelloCommand(runtime));
   context.subscriptions.push(registerInspectWorkspaceSnapshotCommand(runtime));
-  context.subscriptions.push(registerExplainWorkspaceCommand(runtime));
   context.subscriptions.push(
     registerOpenSidebarCommand(runtime, sidebarProvider)
+  );
+  context.subscriptions.push(
+    registerExplainWorkspaceCommand(runtime, sidebarProvider)
   );
 
   runtime.output.appendLine("VS Code Control Agent activated.");

@@ -15,6 +15,12 @@ export type SidebarWebviewToHostMessage =
       payload: {
         sentAt: string;
       };
+    }
+  | {
+      type: "sidebar/triggerExplainWorkspace";
+    }
+  | {
+      type: "sidebar/showHome";
     };
 
 /**

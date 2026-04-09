@@ -1,9 +1,12 @@
 import * as vscode from "vscode";
+import { buildWorkspaceSummaryViewModel } from "../explain/buildWorkspaceSummaryViewModel";
+import { createDefaultInspectors } from "../inspectors/createDefaultInspectors";
 import type { ExtensionRuntime } from "../state/runtime";
 import {
   createInitialSidebarHostState,
   type SidebarHostState,
 } from "../state/sidebarState";
+import { WorkspaceSnapshotBuilder } from "../inspectors/WorkspaceSnapshotBuilder";
 import type {
   SidebarHostToWebviewMessage,
   SidebarWebviewToHostMessage,
@@ -13,10 +16,10 @@ import { renderSidebarShellHtml } from "./renderSidebarShellHtml";
 /**
  * Real sidebar provider for the extension shell.
  *
- * B2 adds:
- * - host-owned sidebar state
- * - message handling from the webview
- * - state updates pushed back into the webview
+ * B3 adds:
+ * - explain flow execution inside the sidebar
+ * - sidebar screen switching
+ * - explanation state hosted in the extension layer
  */
 export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | undefined;
@@ -30,26 +33,14 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
     );
   }
 
-  /**
-   * Exposes the current view instance so commands can reveal/focus it later.
-   */
   public getView(): vscode.WebviewView | undefined {
     return this.view;
   }
 
-  /**
-   * Returns the latest host-side state.
-   */
   public getState(): SidebarHostState {
     return this.state;
   }
 
-  /**
-   * Generic state updater.
-   *
-   * This keeps future sidebar flows simple:
-   * change state once here, then broadcast it to the webview.
-   */
   public async updateState(patch: Partial<SidebarHostState>): Promise<void> {
     this.state = {
       ...this.state,
@@ -62,9 +53,6 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  /**
-   * Convenience helper for future slices.
-   */
   public async setStatus(
     statusMessage: string,
     lastEvent: string,
@@ -78,8 +66,82 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Called by VS Code when the sidebar view is created or restored.
+   * B3 main action:
+   * builds the existing workspace explanation and stores it in sidebar state.
    */
+  public async runExplainWorkspace(): Promise<void> {
+    this.runtime.output.appendLine("[sidebar] explain workspace flow started");
+
+    await this.updateState({
+      mode: "loading",
+      screen: "home",
+      statusMessage: "Collecting workspace state...",
+      lastEvent: "explain workspace started",
+      errorMessage: null,
+    });
+
+    try {
+      const builder = new WorkspaceSnapshotBuilder(
+        this.runtime,
+        createDefaultInspectors()
+      );
+
+      const snapshot = await builder.build();
+      const explanation = buildWorkspaceSummaryViewModel(snapshot);
+
+      await this.updateState({
+        mode: "showing-result",
+        screen: "explanation",
+        explanation,
+        statusMessage: "Workspace explanation ready.",
+        lastEvent: "explain workspace completed",
+        errorMessage: null,
+      });
+
+      await this.postMessage({
+        type: "sidebar/ack",
+        payload: {
+          message: "Workspace explanation rendered in the sidebar.",
+        },
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unknown error while building workspace explanation.";
+
+      await this.updateState({
+        mode: "idle",
+        screen: "home",
+        explanation: null,
+        statusMessage: "Workspace explanation failed.",
+        lastEvent: "explain workspace failed",
+        errorMessage: message,
+      });
+
+      await this.postMessage({
+        type: "sidebar/ack",
+        payload: {
+          message: `Workspace explanation failed: ${message}`,
+        },
+      });
+    }
+  }
+
+  /**
+   * Returns the sidebar to its basic home screen.
+   */
+  public async showHome(): Promise<void> {
+    await this.updateState({
+      mode: "idle",
+      screen: "home",
+      statusMessage: "Showing sidebar home.",
+      lastEvent: "show home",
+      explanation: null,
+      errorMessage: null,
+    });
+  }
+
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     _context: vscode.WebviewViewResolveContext,
@@ -91,7 +153,6 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
       enableScripts: true,
     };
 
-    // Mark the view as mounted before rendering the initial HTML.
     this.state = {
       ...this.state,
       viewMounted: true,
@@ -102,7 +163,7 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = renderSidebarShellHtml({
       title: "Control Agent",
       subtitle:
-        "VS Code-native assistant shell. This sidebar now supports host↔webview messaging.",
+        "VS Code-native assistant shell. The read-only explain flow now lives in this sidebar.",
       initialState: this.state,
     });
 
@@ -117,16 +178,10 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
     this.runtime.output.appendLine("[sidebar] sidebar view resolved");
   }
 
-  /**
-   * Tries to reveal the sidebar if a view instance already exists.
-   */
   public reveal(preserveFocus = false): void {
     this.view?.show?.(preserveFocus);
   }
 
-  /**
-   * Handles webview-originated messages.
-   */
   private async handleWebviewMessage(
     message: SidebarWebviewToHostMessage
   ): Promise<void> {
@@ -175,12 +230,19 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
 
         return;
       }
+
+      case "sidebar/triggerExplainWorkspace": {
+        await this.runExplainWorkspace();
+        return;
+      }
+
+      case "sidebar/showHome": {
+        await this.showHome();
+        return;
+      }
     }
   }
 
-  /**
-   * Posts one message into the live webview if it exists.
-   */
   private async postMessage(
     message: SidebarHostToWebviewMessage
   ): Promise<void> {

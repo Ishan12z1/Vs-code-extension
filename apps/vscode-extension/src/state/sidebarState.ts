@@ -1,24 +1,47 @@
+import type { WorkspaceSummaryViewModel } from "../explain/workspaceSummaryTypes";
+
 /**
  * Sidebar mode for the shell.
  *
- * Keep this intentionally small in B2.
- * Later slices can add richer modes without changing the messaging pattern.
+ * - idle: nothing active yet
+ * - loading: host is building a result
+ * - showing-result: sidebar has something useful to display
  */
 export type SidebarMode = "idle" | "loading" | "showing-result";
 
 /**
+ * Which screen is currently shown in the sidebar.
+ *
+ * B3 only needs:
+ * - home
+ * - explanation
+ */
+export type SidebarScreen = "home" | "explanation";
+
+/**
  * Extension-host-owned sidebar state.
  *
- * This is the source of truth for the sidebar shell in B2.
- * The webview receives this state and renders it.
+ * This is the source of truth.
+ * The webview only renders what the host sends.
  */
 export interface SidebarHostState {
   readonly mode: SidebarMode;
+  readonly screen: SidebarScreen;
   readonly ready: boolean;
   readonly viewMounted: boolean;
   readonly statusMessage: string;
   readonly lastEvent: string | null;
   readonly debugLogsEnabled: boolean;
+
+  /**
+   * Filled when the explain flow succeeds.
+   */
+  readonly explanation: WorkspaceSummaryViewModel | null;
+
+  /**
+   * Filled when a sidebar action fails.
+   */
+  readonly errorMessage: string | null;
 }
 
 /**
@@ -29,10 +52,13 @@ export function createInitialSidebarHostState(
 ): SidebarHostState {
   return {
     mode: "idle",
+    screen: "home",
     ready: false,
     viewMounted: false,
     statusMessage: "Sidebar shell created. Waiting for webview handshake.",
     lastEvent: null,
     debugLogsEnabled,
+    explanation: null,
+    errorMessage: null,
   };
 }
