@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Literal, Union
 
 from pydantic import BaseModel, Field
 
-
 RequestClass = Literal["explain", "inspect", "configure", "repair", "guide"]
 RiskLevel = Literal["low", "medium", "high"]
 ActionType = Literal[
