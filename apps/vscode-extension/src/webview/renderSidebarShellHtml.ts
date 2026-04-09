@@ -1,4 +1,5 @@
 import type { SidebarHostState } from "../state/sidebarState";
+
 /**
  * Escapes user-controlled text before inserting it into HTML.
  */
@@ -19,12 +20,15 @@ function serializeForInlineScript(value: unknown): string {
 }
 
 /**
- * Renders the B3 sidebar shell.
+ * Renders the B4 sidebar shell.
  *
- * New in B3:
- * - the sidebar can trigger the explain flow
- * - the explain result is rendered inside the sidebar
- * - the old separate panel stops being the main UX
+ * New in B4:
+ * - prompt input
+ * - submit button
+ * - activity area
+ * - result area
+ * - approval placeholder
+ * - logs area
  */
 export function renderSidebarShellHtml(options: {
   title: string;
@@ -86,22 +90,26 @@ export function renderSidebarShellHtml(options: {
         line-height: 1.4;
       }
 
-      .status-grid {
+      .status-grid,
+      .section-grid {
         display: grid;
         gap: 10px;
       }
 
-      .status-row {
+      .status-row,
+      .summary-section {
         border-top: 1px solid var(--vscode-panel-border);
         padding-top: 10px;
       }
 
-      .status-row:first-child {
+      .status-row:first-child,
+      .summary-section:first-child {
         border-top: 0;
         padding-top: 0;
       }
 
-      .status-label {
+      .status-label,
+      .summary-label {
         font-size: 12px;
         color: var(--vscode-descriptionForeground);
         margin-bottom: 4px;
@@ -109,6 +117,20 @@ export function renderSidebarShellHtml(options: {
 
       .status-value {
         font-weight: 600;
+      }
+
+      .summary-item {
+        margin-bottom: 8px;
+      }
+
+      .summary-item:last-child {
+        margin-bottom: 0;
+      }
+
+      .summary-value {
+        line-height: 1.4;
+        white-space: pre-wrap;
+        word-break: break-word;
       }
 
       .good {
@@ -142,47 +164,30 @@ export function renderSidebarShellHtml(options: {
         background: var(--vscode-button-hoverBackground);
       }
 
-      .log {
-        white-space: pre-wrap;
-        word-break: break-word;
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 96px;
+        resize: vertical;
+        border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+        border-radius: 8px;
+        background: var(--vscode-input-background);
+        color: var(--vscode-input-foreground);
+        padding: 10px;
+        font: inherit;
       }
 
-      .section-grid {
+      .stack {
         display: grid;
         gap: 10px;
       }
 
-      .summary-section {
-        border-top: 1px solid var(--vscode-panel-border);
-        padding-top: 10px;
+      .list {
+        margin: 0;
+        padding-left: 18px;
       }
 
-      .summary-section:first-child {
-        border-top: 0;
-        padding-top: 0;
-      }
-
-      .summary-section h3 {
-        margin: 0 0 8px;
-        font-size: 13px;
-      }
-
-      .summary-item {
-        margin-bottom: 8px;
-      }
-
-      .summary-item:last-child {
-        margin-bottom: 0;
-      }
-
-      .summary-label {
-        font-size: 12px;
-        color: var(--vscode-descriptionForeground);
-        margin-bottom: 3px;
-      }
-
-      .summary-value {
-        line-height: 1.4;
+      .log {
         white-space: pre-wrap;
         word-break: break-word;
       }
@@ -205,6 +210,21 @@ export function renderSidebarShellHtml(options: {
       <section class="hero">
         <h1>${escapeHtml(options.title)}</h1>
         <p>${escapeHtml(options.subtitle)}</p>
+      </section>
+
+      <section class="card">
+        <h2>Assistant prompt</h2>
+        <div class="stack">
+          <textarea
+            id="promptInput"
+            placeholder="Ask something like: Explain my current VS Code setup"
+          ></textarea>
+          <div class="controls">
+            <button id="submitPromptButton" type="button">Submit</button>
+            <button id="explainWorkspaceButton" type="button">Explain current VS Code setup</button>
+            <button id="showHomeButton" type="button">Show home</button>
+          </div>
+        </div>
       </section>
 
       <section class="card">
@@ -248,29 +268,13 @@ export function renderSidebarShellHtml(options: {
       </section>
 
       <section class="card">
-        <h2>Assistant actions</h2>
-        <p style="margin-bottom: 10px;">
-          B3 moves the existing explain flow into this sidebar shell.
-        </p>
-        <div class="controls">
-          <button id="explainWorkspaceButton" type="button">Explain current VS Code setup</button>
-          <button id="showHomeButton" type="button">Show home</button>
-          <button id="requestStateButton" type="button">Request current state</button>
-          <button id="pingHostButton" type="button">Send ping to host</button>
-        </div>
+        <h2>Activity</h2>
+        <ul class="list" id="activityList"></ul>
       </section>
 
-      <section class="card" id="errorCard">
-        <h2>Error</h2>
-        <div class="error-box" id="errorValue">No error.</div>
-      </section>
-
-      <section class="card" id="homeCard">
-        <h2>Home</h2>
-        <p>
-          This is the real sidebar shell. Use the explain action above to render the current
-          workspace explanation inside the sidebar instead of a separate panel.
-        </p>
+      <section class="card hidden" id="resultCard">
+        <h2 id="resultTitle">Result</h2>
+        <p id="resultBody"></p>
       </section>
 
       <section class="card hidden" id="explanationCard">
@@ -280,14 +284,39 @@ export function renderSidebarShellHtml(options: {
       </section>
 
       <section class="card">
-        <h2>Bridge log</h2>
-        <p class="log muted" id="logValue">No messages yet.</p>
+        <h2>Approval</h2>
+        <p id="approvalPlaceholder"></p>
+      </section>
+
+      <section class="card hidden" id="errorCard">
+        <h2>Error</h2>
+        <div class="error-box" id="errorValue">No error.</div>
+      </section>
+
+      <section class="card">
+        <h2>Logs</h2>
+        <p class="log muted" id="logsValue">No logs yet.</p>
+      </section>
+
+      <section class="card">
+        <h2>Bridge controls</h2>
+        <div class="controls">
+          <button id="requestStateButton" type="button">Request current state</button>
+          <button id="pingHostButton" type="button">Send ping to host</button>
+        </div>
       </section>
     </div>
 
     <script>
       const vscode = acquireVsCodeApi();
       let currentState = ${initialStateJson};
+
+      const promptInput = document.getElementById("promptInput");
+      const submitPromptButton = document.getElementById("submitPromptButton");
+      const explainWorkspaceButton = document.getElementById("explainWorkspaceButton");
+      const showHomeButton = document.getElementById("showHomeButton");
+      const requestStateButton = document.getElementById("requestStateButton");
+      const pingHostButton = document.getElementById("pingHostButton");
 
       const modeValue = document.getElementById("modeValue");
       const screenValue = document.getElementById("screenValue");
@@ -296,20 +325,21 @@ export function renderSidebarShellHtml(options: {
       const statusMessageValue = document.getElementById("statusMessageValue");
       const lastEventValue = document.getElementById("lastEventValue");
       const debugLogsValue = document.getElementById("debugLogsValue");
-      const logValue = document.getElementById("logValue");
 
-      const explainWorkspaceButton = document.getElementById("explainWorkspaceButton");
-      const showHomeButton = document.getElementById("showHomeButton");
-      const requestStateButton = document.getElementById("requestStateButton");
-      const pingHostButton = document.getElementById("pingHostButton");
+      const activityList = document.getElementById("activityList");
+      const resultCard = document.getElementById("resultCard");
+      const resultTitle = document.getElementById("resultTitle");
+      const resultBody = document.getElementById("resultBody");
 
-      const homeCard = document.getElementById("homeCard");
-      const errorCard = document.getElementById("errorCard");
-      const errorValue = document.getElementById("errorValue");
       const explanationCard = document.getElementById("explanationCard");
       const explanationTitle = document.getElementById("explanationTitle");
       const explanationSubtitle = document.getElementById("explanationSubtitle");
       const explanationSections = document.getElementById("explanationSections");
+
+      const approvalPlaceholder = document.getElementById("approvalPlaceholder");
+      const errorCard = document.getElementById("errorCard");
+      const errorValue = document.getElementById("errorValue");
+      const logsValue = document.getElementById("logsValue");
 
       function escapeHtml(value) {
         return String(value)
@@ -318,10 +348,6 @@ export function renderSidebarShellHtml(options: {
           .replaceAll(">", "&gt;")
           .replaceAll('"', "&quot;")
           .replaceAll("'", "&#39;");
-      }
-
-      function setLog(message) {
-        logValue.textContent = message;
       }
 
       function renderSummarySection(section) {
@@ -347,11 +373,38 @@ export function renderSidebarShellHtml(options: {
         \`;
       }
 
+      function renderActivity(items) {
+        if (!items || items.length === 0) {
+          activityList.innerHTML = '<li class="muted">No activity yet.</li>';
+          return;
+        }
+
+        activityList.innerHTML = items
+          .map((item) => \`<li>\${escapeHtml(item)}</li>\`)
+          .join("");
+      }
+
+      function renderResult(state) {
+        const hasResult = Boolean(state.resultTitle || state.resultBody);
+
+        resultCard.classList.toggle("hidden", !hasResult);
+
+        if (!hasResult) {
+          resultTitle.textContent = "Result";
+          resultBody.textContent = "";
+          return;
+        }
+
+        resultTitle.textContent = state.resultTitle ?? "Result";
+        resultBody.textContent = state.resultBody ?? "";
+      }
+
       function renderExplanation(explanation) {
         if (!explanation) {
           explanationCard.classList.add("hidden");
-          explanationSections.innerHTML = "";
+          explanationTitle.textContent = "Current VS Code setup";
           explanationSubtitle.textContent = "";
+          explanationSections.innerHTML = "";
           return;
         }
 
@@ -364,22 +417,31 @@ export function renderSidebarShellHtml(options: {
       }
 
       function renderError(errorMessage) {
-        if (!errorMessage) {
-          errorCard.classList.add("hidden");
+        const hasError = Boolean(errorMessage);
+
+        errorCard.classList.toggle("hidden", !hasError);
+
+        if (!hasError) {
           errorValue.textContent = "No error.";
           return;
         }
 
-        errorCard.classList.remove("hidden");
         errorValue.textContent = errorMessage;
       }
 
-      function renderScreen(screen) {
-        homeCard.classList.toggle("hidden", screen !== "home");
+      function renderLogs(items) {
+        if (!items || items.length === 0) {
+          logsValue.textContent = "No logs yet.";
+          return;
+        }
+
+        logsValue.textContent = items.join("\\n");
       }
 
       function renderState(state) {
         currentState = state;
+
+        promptInput.value = state.promptDraft;
 
         modeValue.textContent = state.mode;
         screenValue.textContent = state.screen;
@@ -392,10 +454,32 @@ export function renderSidebarShellHtml(options: {
         readyValue.className = "status-value " + (state.ready ? "good" : "warning");
         mountedValue.className = "status-value " + (state.viewMounted ? "good" : "warning");
 
-        renderScreen(state.screen);
+        approvalPlaceholder.textContent = state.approvalPlaceholder;
+
+        renderActivity(state.activityItems);
+        renderResult(state);
         renderExplanation(state.explanation);
         renderError(state.errorMessage);
+        renderLogs(state.logs);
       }
+
+      promptInput.addEventListener("input", () => {
+        vscode.postMessage({
+          type: "sidebar/updatePromptDraft",
+          payload: {
+            prompt: promptInput.value
+          }
+        });
+      });
+
+      submitPromptButton.addEventListener("click", () => {
+        vscode.postMessage({
+          type: "sidebar/submitPrompt",
+          payload: {
+            prompt: promptInput.value
+          }
+        });
+      });
 
       explainWorkspaceButton.addEventListener("click", () => {
         vscode.postMessage({
@@ -433,12 +517,12 @@ export function renderSidebarShellHtml(options: {
 
         if (message.type === "sidebar/stateUpdated") {
           renderState(message.payload);
-          setLog("Received sidebar state update from extension host.");
           return;
         }
 
         if (message.type === "sidebar/ack") {
-          setLog(message.payload.message);
+          const previousLogs = Array.isArray(currentState.logs) ? currentState.logs : [];
+          renderLogs([...previousLogs, message.payload.message]);
         }
       });
 

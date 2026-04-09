@@ -17,6 +17,18 @@ export type SidebarWebviewToHostMessage =
       };
     }
   | {
+      type: "sidebar/updatePromptDraft";
+      payload: {
+        prompt: string;
+      };
+    }
+  | {
+      type: "sidebar/submitPrompt";
+      payload: {
+        prompt: string;
+      };
+    }
+  | {
       type: "sidebar/triggerExplainWorkspace";
     }
   | {

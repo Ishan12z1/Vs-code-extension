@@ -2,26 +2,22 @@ import type { WorkspaceSummaryViewModel } from "../explain/workspaceSummaryTypes
 
 /**
  * Sidebar mode for the shell.
- *
- * - idle: nothing active yet
- * - loading: host is building a result
- * - showing-result: sidebar has something useful to display
  */
 export type SidebarMode = "idle" | "loading" | "showing-result";
 
 /**
- * Which screen is currently shown in the sidebar.
+ * Which main screen is active.
  *
- * B3 only needs:
- * - home
- * - explanation
+ * - home: default shell
+ * - explanation: read-only workspace explanation
+ * - result: generic placeholder result for submitted prompts
  */
-export type SidebarScreen = "home" | "explanation";
+export type SidebarScreen = "home" | "explanation" | "result";
 
 /**
  * Extension-host-owned sidebar state.
  *
- * This is the source of truth.
+ * This stays the source of truth for the sidebar.
  * The webview only renders what the host sends.
  */
 export interface SidebarHostState {
@@ -34,12 +30,41 @@ export interface SidebarHostState {
   readonly debugLogsEnabled: boolean;
 
   /**
-   * Filled when the explain flow succeeds.
+   * Prompt draft held by the shell.
+   * B4 uses this to make the sidebar feel like a real assistant surface.
+   */
+  readonly promptDraft: string;
+
+  /**
+   * Lightweight activity feed shown in the sidebar.
+   * Keep this simple for now.
+   */
+  readonly activityItems: string[];
+
+  /**
+   * Read-only explanation result reused from B3.
    */
   readonly explanation: WorkspaceSummaryViewModel | null;
 
   /**
-   * Filled when a sidebar action fails.
+   * Generic result area for non-explain prompts.
+   * This is still placeholder-only in B4.
+   */
+  readonly resultTitle: string | null;
+  readonly resultBody: string | null;
+
+  /**
+   * Approval flow is not implemented yet, but the shell needs a visible placeholder.
+   */
+  readonly approvalPlaceholder: string;
+
+  /**
+   * Lightweight shell logs.
+   */
+  readonly logs: string[];
+
+  /**
+   * Error state for user-visible failures.
    */
   readonly errorMessage: string | null;
 }
@@ -58,7 +83,14 @@ export function createInitialSidebarHostState(
     statusMessage: "Sidebar shell created. Waiting for webview handshake.",
     lastEvent: null,
     debugLogsEnabled,
+    promptDraft: "",
+    activityItems: ["Sidebar shell initialized."],
     explanation: null,
+    resultTitle: null,
+    resultBody: null,
+    approvalPlaceholder:
+      "Approval flow is not wired yet. Risk review and apply controls will appear here later.",
+    logs: ["Sidebar shell initialized."],
     errorMessage: null,
   };
 }
