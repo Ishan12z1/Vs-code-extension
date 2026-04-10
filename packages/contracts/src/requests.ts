@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * The request class defines what are the possible type of incoming user intent
+ * The request class defines the allowed incoming user-intent categories.
  */
 export const RequestClassSchema = z.enum([
   "explain",
@@ -10,25 +10,34 @@ export const RequestClassSchema = z.enum([
   "repair",
   "guide",
 ]);
+
 /**
- *  This generate a typescript type from the zod schema
+ * TypeScript type inferred from the request-class schema.
  */
 export type RequestClass = z.infer<typeof RequestClassSchema>;
 
 /**
- * Basic user request payload passed to the backend later.
+ * Basic user request payload passed to the backend.
+ *
+ * D1 change:
+ * - use createdAt instead of created_at
+ *
+ * Why:
+ * - the rest of the shared contracts are already mostly camelCase
+ * - the Python mirror currently uses createdAt
+ * - this removes one obvious cross-language mismatch
  */
 export const UserRequestSchema = z.object({
   id: z.string().min(1),
   text: z.string().min(1),
   requestClassHint: RequestClassSchema.optional(),
-  created_at: z.string().datetime().optional(),
+  createdAt: z.string().datetime().optional(),
 });
 
 export type UserRequest = z.infer<typeof UserRequestSchema>;
 
 /**
- * This is the workspace schema for context helping
+ * One workspace folder entry.
  */
 export const WorkspaceFolderSchema = z.object({
   name: z.string().min(1),
@@ -38,14 +47,13 @@ export const WorkspaceFolderSchema = z.object({
 export type WorkspaceFolder = z.infer<typeof WorkspaceFolderSchema>;
 
 /**
- *  * Selected extension state.
+ * Selected extension state.
+ *
  * Keep this deliberately narrow:
  * - installed
  * - version
  * - activation state
- *
  */
-
 export const InstalledTargetExtensionSchema = z.object({
   id: z.string().min(1),
   installed: z.boolean(),
@@ -93,6 +101,10 @@ export type VscodeFileParsedStatus = z.infer<
 /**
  * Normalized inspection result for one .vscode/* file.
  *
+ * D1 note:
+ * - keep the payload field name as "json"
+ * - the Python mirror must use the same field name
+ *
  * We keep the payload generic because each file has different shapes:
  * - settings.json => object
  * - tasks.json => object
@@ -108,6 +120,7 @@ export const VscodeFileInspectionSchema = z.object({
 });
 
 export type VscodeFileInspection = z.infer<typeof VscodeFileInspectionSchema>;
+
 /**
  * Group the managed .vscode/* file states into one stable object.
  */
@@ -123,7 +136,7 @@ export type VscodeFilesSnapshot = z.infer<typeof VscodeFilesSnapshotSchema>;
 /**
  * Normalized workspace snapshot.
  *
- * This now includes:
+ * This includes:
  * - relevant user settings
  * - relevant workspace settings
  * - selected extension state

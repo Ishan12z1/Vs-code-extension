@@ -5,6 +5,9 @@ from typing import Any, Dict, List, Literal, Union
 
 from pydantic import BaseModel, Field
 
+# Shared literal types.
+#
+#  keeps these aligned with the TypeScript Zod enums.
 RequestClass = Literal["explain", "inspect", "configure", "repair", "guide"]
 RiskLevel = Literal["low", "medium", "high"]
 ActionType = Literal[
@@ -20,6 +23,11 @@ ActionScope = Literal["user", "workspace", "workspaceFile"]
 
 
 class UserRequest(BaseModel):
+    """
+    Mirrors the shared UserRequest contract from the TypeScript package.
+
+    """
+
     id: str
     text: str
     requestClassHint: RequestClass | None = None
@@ -27,11 +35,19 @@ class UserRequest(BaseModel):
 
 
 class WorkspaceFolder(BaseModel):
+    """
+    One workspace folder entry.
+    """
+
     name: str
     uri: str
 
 
 class InstalledTargetExtension(BaseModel):
+    """
+    Selected installed extension state.
+    """
+
     id: str
     installed: bool
     version: str | None = None
@@ -39,6 +55,10 @@ class InstalledTargetExtension(BaseModel):
 
 
 class KeybindingSignal(BaseModel):
+    """
+    Keybinding-related signal captured from the extension.
+    """
+
     command: str
     available: bool
     keybinding: str | None = None
@@ -46,6 +66,11 @@ class KeybindingSignal(BaseModel):
 
 
 class VscodeFileInspection(BaseModel):
+    """
+    Normalized inspection result for one .vscode/* file.
+
+    """
+
     relativePath: str
     exists: bool
     parseStatus: Literal["not_found", "parsed", "invalid_jsonc"]
@@ -54,6 +79,10 @@ class VscodeFileInspection(BaseModel):
 
 
 class VscodeFilesSnapshot(BaseModel):
+    """
+    Grouped .vscode/* file inspection state.
+    """
+
     settingsJson: VscodeFileInspection
     tasksJson: VscodeFileInspection
     launchJson: VscodeFileInspection
@@ -61,6 +90,10 @@ class VscodeFilesSnapshot(BaseModel):
 
 
 class WorkspaceSnapshot(BaseModel):
+    """
+    Normalized workspace snapshot mirrored from the TypeScript contracts package.
+    """
+
     workspaceFolders: List[WorkspaceFolder] = Field(default_factory=list)
     hasWorkspaceFile: bool = False
     vscodeFolderPresent: bool = False
@@ -78,12 +111,20 @@ class WorkspaceSnapshot(BaseModel):
 
 
 class ApprovalRequirement(BaseModel):
+    """
+    Approval requirement for a plan.
+    """
+
     required: bool
     reason: str
     riskLevel: RiskLevel
 
 
 class ActionPreview(BaseModel):
+    """
+    User-visible preview for one planned action.
+    """
+
     summary: str
     targetLabel: str
     before: Any | None = None
@@ -92,6 +133,10 @@ class ActionPreview(BaseModel):
 
 
 class PlannedAction(BaseModel):
+    """
+    One normalized action in an execution plan.
+    """
+
     id: str
     actionType: ActionType
     scope: ActionScope
@@ -105,6 +150,10 @@ class PlannedAction(BaseModel):
 
 
 class ExecutionPlan(BaseModel):
+    """
+    Structured plan returned by the backend for configure/repair/guide flows.
+    """
+
     id: str
     summary: str
     explanation: str
@@ -114,6 +163,10 @@ class ExecutionPlan(BaseModel):
 
 
 class ExplanationResponse(BaseModel):
+    """
+    Structured explanation/diagnosis response.
+    """
+
     id: str
     requestClass: Literal["explain", "inspect", "guide"]
     title: str
@@ -122,6 +175,10 @@ class ExplanationResponse(BaseModel):
 
 
 class ExecutionResult(BaseModel):
+    """
+    Structured execution result for one action.
+    """
+
     planId: str
     actionId: str
     success: bool
@@ -130,6 +187,10 @@ class ExecutionResult(BaseModel):
 
 
 class RollbackSnapshot(BaseModel):
+    """
+    Structured rollback payload for one action.
+    """
+
     actionId: str
     target: str
     snapshotKind: str
@@ -137,13 +198,19 @@ class RollbackSnapshot(BaseModel):
 
 
 class PlanRequest(BaseModel):
+    """
+    Planner API input:
+    - user request
+    - workspace snapshot
+    """
+
     userRequest: UserRequest
     workspaceSnapshot: WorkspaceSnapshot
 
 
 class WorkspaceSnapshotAcceptanceRequest(BaseModel):
     """
-    Step 5.6 request model.
+    Workspace snapshot acceptance request.
 
     This is intentionally simple:
     - one collected snapshot
@@ -172,7 +239,7 @@ class WorkspaceSnapshotAcceptanceSummary(BaseModel):
 
 class WorkspaceSnapshotAcceptanceResponse(BaseModel):
     """
-    response model.
+    Workspace snapshot acceptance response.
     """
 
     accepted: bool
@@ -182,16 +249,28 @@ class WorkspaceSnapshotAcceptanceResponse(BaseModel):
 
 
 class PlanPayload(BaseModel):
+    """
+    Successful plan payload wrapper.
+    """
+
     kind: Literal["plan"]
     data: ExecutionPlan
 
 
 class ExplanationPayload(BaseModel):
+    """
+    Successful explanation payload wrapper.
+    """
+
     kind: Literal["explanation"]
     data: ExplanationResponse
 
 
 class ErrorPayload(BaseModel):
+    """
+    Structured error payload wrapper.
+    """
+
     kind: Literal["error"]
     error: Dict[str, str]
 
@@ -200,4 +279,7 @@ PlanResponse = Union[PlanPayload, ExplanationPayload, ErrorPayload]
 
 
 def validate_execution_plan(payload: dict) -> ExecutionPlan:
+    """
+    Small helper used by the backend to validate a generated execution plan.
+    """
     return ExecutionPlan.model_validate(payload)
