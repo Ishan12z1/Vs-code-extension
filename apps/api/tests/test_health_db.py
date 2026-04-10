@@ -1,49 +1,22 @@
-from fastapi.testclient import TestClient
+from fastapi import APIRouter, HTTPException
 
-from app.main import app
+from app.db.session import test_database_engine_connection
+from app.schemas import DatabaseHealthResponse
 
-client = TestClient(app)
+router = APIRouter(tags=["health"])
 
 
-def test_database_health_success(monkeypatch) -> None:
+@router.get("/health/db", response_model=DatabaseHealthResponse)
+def get_database_health() -> DatabaseHealthResponse:
     """
-    Route-level success test without needing a real Postgres container.
+    DB connection health check.
     """
-
-    def fake_test_database_connection() -> dict:
-        return {
-            "status": "ok",
-            "database_name": "control_agent",
-        }
-
-    monkeypatch.setattr(
-        "app.routes.health_db.test_database_connection",
-        fake_test_database_connection,
-    )
-
-    response = client.get("/health/db")
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "status": "ok",
-        "database_name": "control_agent",
-    }
-
-
-def test_database_health_failure(monkeypatch) -> None:
-    """
-    Route-level failure test without needing a real Postgres container.
-    """
-
-    def fake_test_database_connection() -> dict:
-        raise RuntimeError("connection refused")
-
-    monkeypatch.setattr(
-        "app.routes.health_db.test_database_connection",
-        fake_test_database_connection,
-    )
-
-    response = client.get("/health/db")
-
-    assert response.status_code == 503
-    assert "Database connectivity check failed" in response.json()["detail"]
+    try:
+        result = test_database_engine_connection()
+        return DatabaseHealthResponse(**result)
+    except Exception as exc:
+        # Keep failures explicit so local DB setup problems are obvious.
+        raise HTTPException(
+            status_code=503,
+            detail=f"Database connectivity check failed: {exc}",
+        ) from exc

@@ -1,41 +1,80 @@
-import os
-
 from dotenv import load_dotenv
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Load local environment variables from .env during development.
+# This keeps local startup easy while still allowing real env vars to override.
 load_dotenv()
 
 
 class Settings(BaseSettings):
     """
-    Centralized app settings loaded from environment variables.
-
-    We keep this small for Step 1:
-    - basic app metadata
-    - host/port
-    - database URL
-    - DB connect timeout
+    Centralized backend settings.
+    We are still keeping this intentionally small.
     """
 
+    # Basic app metadata.
     app_name: str = "VS Code Control Agent API"
     environment: str = "development"
     api_version: str = "0.1.0"
     host: str = "127.0.0.1"
     port: int = 8000
 
-    # Local default points to Docker Postgres exposed on localhost.
-    database_url: str | None = os.getenv("DATABASE_URL")
+    # Main database URL.
+    #
+    # We support both:
+    # - CONTROL_AGENT_DATABASE_URL
+    # - DATABASE_URL
+    #
+    # The plain "postgresql://" form is convenient for local tooling.
+    # We convert it to a SQLAlchemy-specific driver URL below when needed.
+    database_url: str = Field(
+        default="postgresql://postgres:postgres@127.0.0.1:5432/control_agent",
+        validation_alias=AliasChoices(
+            "CONTROL_AGENT_DATABASE_URL",
+            "DATABASE_URL",
+        ),
+    )
 
-    # Keep DB checks fast in local development.
-    database_connect_timeout_seconds: int = 5
+    # Keep DB checks and failed connections fast in local development.
+    database_connect_timeout_seconds: int = Field(default=5, ge=1)
 
+    # SQLAlchemy engine options.
+    database_echo: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "CONTROL_AGENT_DATABASE_ECHO",
+            "DATABASE_ECHO",
+        ),
+    )
+    database_pool_pre_ping: bool = True
+
+    # Tracing is still just a flag for now.
     tracing_enabled: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",
-        env_prefix="CONTROL_AGENT_",
         extra="ignore",
     )
+
+    @property
+    def sqlalchemy_database_url(self) -> str:
+        """
+        Returns a SQLAlchemy-ready database URL.
+        This lets the rest of the app depend on one normalized URL.
+        """
+        if self.database_url.startswith("postgresql+psycopg://"):
+            return self.database_url
+
+        if self.database_url.startswith("postgresql://"):
+            return self.database_url.replace(
+                "postgresql://",
+                "postgresql+psycopg://",
+                1,
+            )
+
+        # Fall back to the raw value for any future custom driver/use case.
+        return self.database_url
 
 
 settings = Settings()

@@ -8,7 +8,10 @@ def test_database_connection() -> dict:
     """
     Performs a tiny raw Postgres connectivity check.
 
-    Returns a small structured result for the health route.
+    Important note:
+    - This is now a low-level helper only.
+    - The main application DB path should use SQLAlchemy engine/session wiring.
+    - We keep this around temporarily for low-level debugging if needed.
     """
     with connect(
         settings.database_url,
