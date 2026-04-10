@@ -4,6 +4,11 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
+# IMPORTANT:
+# Import model modules before Alembic reads Base.metadata.
+# Without this, the tables may not be registered yet, and autogenerate would
+# incorrectly think the schema is empty.
+import app.models  # noqa: F401
 from alembic import context
 from app.config import settings
 from app.db.base import Base
@@ -12,11 +17,6 @@ from app.db.base import Base
 config = context.config
 
 # Inject the real DB URL from the application settings.
-#
-# Why:
-# - we want one canonical DB config source
-# - app runtime and Alembic should agree on the same database URL
-# - we do not want to duplicate secrets or connection strings in alembic.ini
 config.set_main_option("sqlalchemy.url", settings.sqlalchemy_database_url)
 
 # Configure Python logging from alembic.ini if present.
@@ -24,17 +24,14 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Shared SQLAlchemy metadata for autogeneration.
-
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
     """
-    Run migrations in 'offline' mode.
+    Run migrations in offline mode.
 
-    Offline mode emits SQL without creating a live DB connection.
-    We keep this standard Alembic path because it is useful later for debugging
-    or SQL inspection, even though local development will mostly use online mode.
+    This produces SQL output without opening a live DB connection.
     """
     url = config.get_main_option("sqlalchemy.url")
 
@@ -52,10 +49,9 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """
-    Run migrations in 'online' mode.
+    Run migrations in online mode.
 
-    This creates a real SQLAlchemy engine using the same DB URL the app uses.
-    That keeps Alembic aligned with the actual backend configuration.
+    This creates a real SQLAlchemy engine using the backend settings.
     """
     configuration = config.get_section(config.config_ini_section, {})
 
