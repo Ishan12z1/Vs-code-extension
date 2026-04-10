@@ -24,3 +24,18 @@ class PlanPlaceholderResponse(BaseModel):
     status: str
     message: str
     received_request: str
+
+
+class DatabaseProofOfLifeResponse(BaseModel):
+    """
+    Response model for the internal DB proof-of-life route.
+
+    This keeps the route output explicit and stable while Step C is still
+    focused on backend foundation rather than business logic.
+    """
+
+    status: str
+    created_run_id: str
+    request_text: str
+    run_status: str
+    message: str

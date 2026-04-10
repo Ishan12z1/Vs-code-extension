@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.config import settings
+from app.routes.db_proof_of_life import router as db_proof_of_life_router
 from app.routes.health import router as health_router
 from app.routes.health_db import router as health_db_router
 from app.routes.plan import router as plan_router
@@ -15,3 +16,4 @@ app.include_router(version_router)
 
 app.include_router(workspace_snapshot_router)
 app.include_router(health_db_router)
+app.include_router(db_proof_of_life_router)
