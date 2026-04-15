@@ -5,11 +5,10 @@ from typing import Any, Dict, List, Literal, Union
 
 from pydantic import BaseModel, Field
 
-# Shared literal types.
-#
-#  keeps these aligned with the TypeScript Zod enums.
+# Shared literal types kept aligned with the TypeScript contracts package.
 RequestClass = Literal["explain", "inspect", "configure", "repair", "guide"]
 RiskLevel = Literal["low", "medium", "high"]
+ApprovalDecision = Literal["approved", "rejected", "cancelled"]
 ActionType = Literal[
     "updateUserSettings",
     "updateWorkspaceSettings",
@@ -20,12 +19,19 @@ ActionType = Literal[
     "updateKeybindings",
 ]
 ActionScope = Literal["user", "workspace", "workspaceFile"]
+ExecutionResultStatus = Literal["pending", "succeeded", "failed", "skipped"]
+PlanErrorCode = Literal[
+    "invalid_request_payload",
+    "invalid_plan_payload",
+    "unsupported_request",
+    "not_implemented",
+    "internal_error",
+]
 
 
 class UserRequest(BaseModel):
     """
-    Mirrors the shared UserRequest contract from the TypeScript package.
-
+    Basic user request payload mirrored from the TypeScript contracts.
     """
 
     id: str
@@ -68,7 +74,6 @@ class KeybindingSignal(BaseModel):
 class VscodeFileInspection(BaseModel):
     """
     Normalized inspection result for one .vscode/* file.
-
     """
 
     relativePath: str
@@ -91,7 +96,7 @@ class VscodeFilesSnapshot(BaseModel):
 
 class WorkspaceSnapshot(BaseModel):
     """
-    Normalized workspace snapshot mirrored from the TypeScript contracts package.
+    Normalized workspace snapshot mirrored from the TypeScript contracts.
     """
 
     workspaceFolders: List[WorkspaceFolder] = Field(default_factory=list)
@@ -112,7 +117,7 @@ class WorkspaceSnapshot(BaseModel):
 
 class ApprovalRequirement(BaseModel):
     """
-    Approval requirement for a plan.
+    Approval requirement for a generated plan.
     """
 
     required: bool
@@ -122,7 +127,7 @@ class ApprovalRequirement(BaseModel):
 
 class ActionPreview(BaseModel):
     """
-    User-visible preview for one planned action.
+    User-visible preview of one planned action.
     """
 
     summary: str
@@ -134,7 +139,7 @@ class ActionPreview(BaseModel):
 
 class PlannedAction(BaseModel):
     """
-    One normalized action in an execution plan.
+    One normalized action in a plan.
     """
 
     id: str
@@ -151,7 +156,7 @@ class PlannedAction(BaseModel):
 
 class ExecutionPlan(BaseModel):
     """
-    Structured plan returned by the backend for configure/repair/guide flows.
+    Structured execution plan for configure/repair/guide requests.
     """
 
     id: str
@@ -164,7 +169,7 @@ class ExecutionPlan(BaseModel):
 
 class ExplanationResponse(BaseModel):
     """
-    Structured explanation/diagnosis response.
+    Structured explanation response for explain/inspect flows.
     """
 
     id: str
@@ -176,25 +181,45 @@ class ExplanationResponse(BaseModel):
 
 class ExecutionResult(BaseModel):
     """
-    Structured execution result for one action.
+    Structured result for one executed action.
+
+    D2 hardens this shape by adding an explicit status field and warnings list.
     """
 
     planId: str
     actionId: str
+    status: ExecutionResultStatus
     success: bool
     message: str
     changedTargets: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
 
 
 class RollbackSnapshot(BaseModel):
     """
     Structured rollback payload for one action.
+
+    D2 keeps snapshotData flexible, but adds createdAt as one standard timestamp
+    field for later persistence and execution flows.
     """
 
     actionId: str
     target: str
     snapshotKind: str
     snapshotData: Any
+    createdAt: datetime | None = None
+
+
+class ApprovalDecisionRecord(BaseModel):
+    """
+    Durable approval decision record shared by the backend and extension.
+    """
+
+    runId: str
+    planId: str
+    decision: ApprovalDecision
+    decidedAt: datetime
+    reason: str | None = None
 
 
 class PlanRequest(BaseModel):
@@ -211,11 +236,6 @@ class PlanRequest(BaseModel):
 class WorkspaceSnapshotAcceptanceRequest(BaseModel):
     """
     Workspace snapshot acceptance request.
-
-    This is intentionally simple:
-    - one collected snapshot
-    - timestamp from the extension
-    - source marker
     """
 
     snapshot: WorkspaceSnapshot
@@ -248,6 +268,19 @@ class WorkspaceSnapshotAcceptanceResponse(BaseModel):
     warnings: List[str] = Field(default_factory=list)
 
 
+class PlanError(BaseModel):
+    """
+    Structured planner/backend error payload.
+
+    D2 replaces the earlier loose Dict[str, str] pattern with a shared typed
+    error shape that mirrors the TypeScript contracts package.
+    """
+
+    code: PlanErrorCode
+    message: str
+    details: Dict[str, Any] | None = None
+
+
 class PlanPayload(BaseModel):
     """
     Successful plan payload wrapper.
@@ -272,10 +305,30 @@ class ErrorPayload(BaseModel):
     """
 
     kind: Literal["error"]
-    error: Dict[str, str]
+    error: PlanError
 
 
 PlanResponse = Union[PlanPayload, ExplanationPayload, ErrorPayload]
+
+
+class ApprovalDecisionRequest(BaseModel):
+    """
+    Approval decision request for future approval endpoints.
+    """
+
+    runId: str
+    planId: str
+    decision: ApprovalDecision
+    reason: str | None = None
+
+
+class ApprovalDecisionResponse(BaseModel):
+    """
+    Approval decision response carrying the stored approval record.
+    """
+
+    approved: bool
+    record: ApprovalDecisionRecord
 
 
 def validate_execution_plan(payload: dict) -> ExecutionPlan:

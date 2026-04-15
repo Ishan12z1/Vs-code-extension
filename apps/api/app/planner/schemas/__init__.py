@@ -1,9 +1,13 @@
 from .contracts import (
     ActionPreview,
+    ApprovalDecisionRecord,
+    ApprovalDecisionRequest,
+    ApprovalDecisionResponse,
     ApprovalRequirement,
     ExecutionPlan,
     ExecutionResult,
     ExplanationResponse,
+    PlanError,
     PlannedAction,
     PlanRequest,
     RollbackSnapshot,
@@ -17,10 +21,14 @@ from .contracts import (
 
 __all__ = [
     "ActionPreview",
+    "ApprovalDecisionRecord",
+    "ApprovalDecisionRequest",
+    "ApprovalDecisionResponse",
     "ApprovalRequirement",
     "ExecutionPlan",
     "ExecutionResult",
     "ExplanationResponse",
+    "PlanError",
     "PlanRequest",
     "PlannedAction",
     "RollbackSnapshot",
