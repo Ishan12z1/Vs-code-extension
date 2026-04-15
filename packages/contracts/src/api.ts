@@ -12,7 +12,7 @@ import { UserRequestSchema, WorkspaceSnapshotSchema } from "./requests";
  * - what the user wants
  * - what the workspace looks like
  */
-export const PlanRequestSchema = z.object({
+export const PlanRequestSchema = z.strictObject({
   userRequest: UserRequestSchema,
   workspaceSnapshot: WorkspaceSnapshotSchema,
 });

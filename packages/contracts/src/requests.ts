@@ -27,7 +27,7 @@ export type RequestClass = z.infer<typeof RequestClassSchema>;
  * - the Python mirror currently uses createdAt
  * - this removes one obvious cross-language mismatch
  */
-export const UserRequestSchema = z.object({
+export const UserRequestSchema = z.strictObject({
   id: z.string().min(1),
   text: z.string().min(1),
   requestClassHint: RequestClassSchema.optional(),

@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Compile both source files and tests from the package root.
+    "rootDir": ".",
+
+    // Keep test output separate from the publishable library build.
+    "outDir": "dist-tests",
+
+    // Make Node built-in test typings available.
+    "types": ["node"],
+
+    // We do not need declaration files for tests.
+    "declaration": false
+  },
+
+  // Include both source files and test files in the test build.
+  "include": ["src/**/*.ts", "tests/**/*.ts"],
+
+  // Keep generated output and installed dependencies out of the test build.
+  "exclude": ["node_modules", "dist", "dist-tests"]
+}
