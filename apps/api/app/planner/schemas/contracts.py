@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # Shared literal types kept aligned with the TypeScript contracts package.
 RequestClass = Literal["explain", "inspect", "configure", "repair", "guide"]
@@ -29,7 +29,17 @@ PlanErrorCode = Literal[
 ]
 
 
-class UserRequest(BaseModel):
+class ContractModel(BaseModel):
+    """
+    Base class for shared contract models.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+
+
+class UserRequest(ContractModel):
     """
     Basic user request payload mirrored from the TypeScript contracts.
     """
@@ -40,7 +50,7 @@ class UserRequest(BaseModel):
     createdAt: datetime | None = None
 
 
-class WorkspaceFolder(BaseModel):
+class WorkspaceFolder(ContractModel):
     """
     One workspace folder entry.
     """
@@ -49,7 +59,7 @@ class WorkspaceFolder(BaseModel):
     uri: str
 
 
-class InstalledTargetExtension(BaseModel):
+class InstalledTargetExtension(ContractModel):
     """
     Selected installed extension state.
     """
@@ -60,7 +70,7 @@ class InstalledTargetExtension(BaseModel):
     isActive: bool = False
 
 
-class KeybindingSignal(BaseModel):
+class KeybindingSignal(ContractModel):
     """
     Keybinding-related signal captured from the extension.
     """
@@ -71,19 +81,32 @@ class KeybindingSignal(BaseModel):
     note: str | None = None
 
 
-class VscodeFileInspection(BaseModel):
+class VscodeFileInspection(ContractModel):
     """
     Normalized inspection result for one .vscode/* file.
+
+    Important:
+    - Python uses parsedContent internally
+    - the shared external contract key remains "json"
+    - this keeps parity with the TypeScript contracts and shared JSON fixtures
     """
 
     relativePath: str
     exists: bool
     parseStatus: Literal["not_found", "parsed", "invalid_jsonc"]
-    parsedContent: Any | None = None
+
+    # Accept "json" from incoming payloads, but keep parsedContent as the
+    # Python-side attribute name.
+    parsedContent: Any | None = Field(
+        default=None,
+        validation_alias="json",
+        serialization_alias="json",
+    )
+
     parseError: str | None = None
 
 
-class VscodeFilesSnapshot(BaseModel):
+class VscodeFilesSnapshot(ContractModel):
     """
     Grouped .vscode/* file inspection state.
     """
@@ -94,7 +117,7 @@ class VscodeFilesSnapshot(BaseModel):
     extensionsJson: VscodeFileInspection
 
 
-class WorkspaceSnapshot(BaseModel):
+class WorkspaceSnapshot(ContractModel):
     """
     Normalized workspace snapshot mirrored from the TypeScript contracts.
     """
@@ -115,7 +138,7 @@ class WorkspaceSnapshot(BaseModel):
     notes: List[str] = Field(default_factory=list)
 
 
-class ApprovalRequirement(BaseModel):
+class ApprovalRequirement(ContractModel):
     """
     Approval requirement for a generated plan.
     """
@@ -125,7 +148,7 @@ class ApprovalRequirement(BaseModel):
     riskLevel: RiskLevel
 
 
-class ActionPreview(BaseModel):
+class ActionPreview(ContractModel):
     """
     User-visible preview of one planned action.
     """
@@ -137,7 +160,7 @@ class ActionPreview(BaseModel):
     diffText: str | None = None
 
 
-class PlannedAction(BaseModel):
+class PlannedAction(ContractModel):
     """
     One normalized action in a plan.
     """
@@ -154,7 +177,7 @@ class PlannedAction(BaseModel):
     rollbackMethod: str
 
 
-class ExecutionPlan(BaseModel):
+class ExecutionPlan(ContractModel):
     """
     Structured execution plan for configure/repair/guide requests.
     """
@@ -167,7 +190,7 @@ class ExecutionPlan(BaseModel):
     actions: List[PlannedAction]
 
 
-class ExplanationResponse(BaseModel):
+class ExplanationResponse(ContractModel):
     """
     Structured explanation response for explain/inspect flows.
     """
@@ -179,11 +202,9 @@ class ExplanationResponse(BaseModel):
     suggestedNextSteps: List[str] = Field(default_factory=list)
 
 
-class ExecutionResult(BaseModel):
+class ExecutionResult(ContractModel):
     """
     Structured result for one executed action.
-
-    D2 hardens this shape by adding an explicit status field and warnings list.
     """
 
     planId: str
@@ -195,12 +216,9 @@ class ExecutionResult(BaseModel):
     warnings: List[str] = Field(default_factory=list)
 
 
-class RollbackSnapshot(BaseModel):
+class RollbackSnapshot(ContractModel):
     """
     Structured rollback payload for one action.
-
-    D2 keeps snapshotData flexible, but adds createdAt as one standard timestamp
-    field for later persistence and execution flows.
     """
 
     actionId: str
@@ -210,7 +228,7 @@ class RollbackSnapshot(BaseModel):
     createdAt: datetime | None = None
 
 
-class ApprovalDecisionRecord(BaseModel):
+class ApprovalDecisionRecord(ContractModel):
     """
     Durable approval decision record shared by the backend and extension.
     """
@@ -222,7 +240,7 @@ class ApprovalDecisionRecord(BaseModel):
     reason: str | None = None
 
 
-class PlanRequest(BaseModel):
+class PlanRequest(ContractModel):
     """
     Planner API input:
     - user request
@@ -233,7 +251,7 @@ class PlanRequest(BaseModel):
     workspaceSnapshot: WorkspaceSnapshot
 
 
-class WorkspaceSnapshotAcceptanceRequest(BaseModel):
+class WorkspaceSnapshotAcceptanceRequest(ContractModel):
     """
     Workspace snapshot acceptance request.
     """
@@ -243,7 +261,7 @@ class WorkspaceSnapshotAcceptanceRequest(BaseModel):
     source: Literal["vscode-extension"] = "vscode-extension"
 
 
-class WorkspaceSnapshotAcceptanceSummary(BaseModel):
+class WorkspaceSnapshotAcceptanceSummary(ContractModel):
     """
     Small backend-produced summary of what was accepted.
     """
@@ -257,7 +275,7 @@ class WorkspaceSnapshotAcceptanceSummary(BaseModel):
     noteCount: int
 
 
-class WorkspaceSnapshotAcceptanceResponse(BaseModel):
+class WorkspaceSnapshotAcceptanceResponse(ContractModel):
     """
     Workspace snapshot acceptance response.
     """
@@ -268,12 +286,9 @@ class WorkspaceSnapshotAcceptanceResponse(BaseModel):
     warnings: List[str] = Field(default_factory=list)
 
 
-class PlanError(BaseModel):
+class PlanError(ContractModel):
     """
     Structured planner/backend error payload.
-
-    D2 replaces the earlier loose Dict[str, str] pattern with a shared typed
-    error shape that mirrors the TypeScript contracts package.
     """
 
     code: PlanErrorCode
@@ -281,7 +296,7 @@ class PlanError(BaseModel):
     details: Dict[str, Any] | None = None
 
 
-class PlanPayload(BaseModel):
+class PlanPayload(ContractModel):
     """
     Successful plan payload wrapper.
     """
@@ -290,7 +305,7 @@ class PlanPayload(BaseModel):
     data: ExecutionPlan
 
 
-class ExplanationPayload(BaseModel):
+class ExplanationPayload(ContractModel):
     """
     Successful explanation payload wrapper.
     """
@@ -299,7 +314,7 @@ class ExplanationPayload(BaseModel):
     data: ExplanationResponse
 
 
-class ErrorPayload(BaseModel):
+class ErrorPayload(ContractModel):
     """
     Structured error payload wrapper.
     """
@@ -311,7 +326,7 @@ class ErrorPayload(BaseModel):
 PlanResponse = Union[PlanPayload, ExplanationPayload, ErrorPayload]
 
 
-class ApprovalDecisionRequest(BaseModel):
+class ApprovalDecisionRequest(ContractModel):
     """
     Approval decision request for future approval endpoints.
     """
@@ -322,7 +337,7 @@ class ApprovalDecisionRequest(BaseModel):
     reason: str | None = None
 
 
-class ApprovalDecisionResponse(BaseModel):
+class ApprovalDecisionResponse(ContractModel):
     """
     Approval decision response carrying the stored approval record.
     """
