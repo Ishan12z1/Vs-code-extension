@@ -1,0 +1,33 @@
+{
+  "id": "plan-1",
+  "summary": "Enable format on save in the workspace",
+  "explanation": "This updates workspace settings only.",
+  "requestClass": "configure",
+  "approval": {
+    "required": false,
+    "reason": "Low-risk workspace setting update.",
+    "riskLevel": "low"
+  },
+  "actions": [
+    {
+      "id": "action-1",
+      "actionType": "updateWorkspaceSettings",
+      "scope": "workspace",
+      "target": "editor.formatOnSave",
+      "parameters": {
+        "value": true
+      },
+      "riskLevel": "low",
+      "requiresApproval": false,
+      "preview": {
+        "summary": "Enable format on save for this workspace.",
+        "targetLabel": "editor.formatOnSave",
+        "before": false,
+        "after": true,
+        "diffText": "editor.formatOnSave: false -> true"
+      },
+      "executionMethod": "vscode.workspace.getConfiguration().update",
+      "rollbackMethod": "restore_previous_setting"
+    }
+  ]
+}

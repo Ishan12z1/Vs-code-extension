@@ -1,0 +1,33 @@
+{
+  "id": "plan-1",
+  "summary": "Bad action type test",
+  "explanation": "This should fail.",
+  "requestClass": "configure",
+  "approval": {
+    "required": false,
+    "reason": "Testing invalid contract payload.",
+    "riskLevel": "low"
+  },
+  "actions": [
+    {
+      "id": "action-1",
+      "actionType": "deleteEverything",
+      "scope": "workspace",
+      "target": "editor.formatOnSave",
+      "parameters": {
+        "value": true
+      },
+      "riskLevel": "low",
+      "requiresApproval": false,
+      "preview": {
+        "summary": "Enable format on save for this workspace.",
+        "targetLabel": "editor.formatOnSave",
+        "before": false,
+        "after": true,
+        "diffText": "editor.formatOnSave: false -> true"
+      },
+      "executionMethod": "vscode.workspace.getConfiguration().update",
+      "rollbackMethod": "restore_previous_setting"
+    }
+  ]
+}

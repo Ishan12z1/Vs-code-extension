@@ -1,0 +1,78 @@
+{
+  "userRequest": {
+    "id": "req-1",
+    "text": "Explain my current VS Code setup",
+    "requestClassHint": "explain",
+    "createdAt": "2026-04-10T12:00:00Z"
+  },
+  "workspaceSnapshot": {
+    "workspaceFolders": [
+      {
+        "name": "demo-workspace",
+        "uri": "file:///demo-workspace"
+      }
+    ],
+    "hasWorkspaceFile": false,
+    "vscodeFolderPresent": true,
+    "detectedMarkers": ["marker:package.json", "stack:jsts"],
+    "installedExtensions": [],
+    "relevantFiles": ["package.json", ".vscode/settings.json"],
+    "relevantUserSettings": {
+      "editor.formatOnSave": true
+    },
+    "relevantWorkspaceSettings": {
+      "prettier.requireConfig": true
+    },
+    "installedTargetExtensions": [
+      {
+        "id": "esbenp.prettier-vscode",
+        "installed": true,
+        "version": "10.0.0",
+        "isActive": false
+      }
+    ],
+    "keybindingSignals": [
+      {
+        "command": "editor.action.formatDocument",
+        "available": true,
+        "keybinding": null,
+        "note": "Formatting command exists."
+      }
+    ],
+    "vscodeFiles": {
+      "settingsJson": {
+        "relativePath": ".vscode/settings.json",
+        "exists": true,
+        "parseStatus": "parsed",
+        "json": {
+          "editor.formatOnSave": true
+        },
+        "parseError": null
+      },
+      "tasksJson": {
+        "relativePath": ".vscode/tasks.json",
+        "exists": false,
+        "parseStatus": "not_found",
+        "json": null,
+        "parseError": null
+      },
+      "launchJson": {
+        "relativePath": ".vscode/launch.json",
+        "exists": false,
+        "parseStatus": "not_found",
+        "json": null,
+        "parseError": null
+      },
+      "extensionsJson": {
+        "relativePath": ".vscode/extensions.json",
+        "exists": true,
+        "parseStatus": "parsed",
+        "json": {
+          "recommendations": ["esbenp.prettier-vscode"]
+        },
+        "parseError": null
+      }
+    },
+    "notes": ["Detected likely JS/TS workspace signals."]
+  }
+}
