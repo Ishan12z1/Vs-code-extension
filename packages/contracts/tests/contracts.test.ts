@@ -81,7 +81,7 @@ function buildValidWorkspaceSnapshot() {
         relativePath: ".vscode/settings.json",
         exists: true,
         parseStatus: "parsed",
-        json: {
+        parsedContent: {
           "editor.formatOnSave": true,
         },
         parseError: null,
@@ -90,21 +90,21 @@ function buildValidWorkspaceSnapshot() {
         relativePath: ".vscode/tasks.json",
         exists: false,
         parseStatus: "not_found",
-        json: null,
+        parsedContent: null,
         parseError: null,
       },
       launchJson: {
         relativePath: ".vscode/launch.json",
         exists: false,
         parseStatus: "not_found",
-        json: null,
+        parsedContent: null,
         parseError: null,
       },
       extensionsJson: {
         relativePath: ".vscode/extensions.json",
         exists: true,
         parseStatus: "parsed",
-        json: {
+        parsedContent: {
           recommendations: ["esbenp.prettier-vscode"],
         },
         parseError: null,

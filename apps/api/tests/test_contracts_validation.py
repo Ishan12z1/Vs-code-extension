@@ -15,8 +15,6 @@ from app.planner.schemas.contracts import (
 def build_valid_workspace_snapshot() -> dict:
     """
     Shared minimal valid workspace snapshot fixture for Python-side contract tests.
-
-    Keep this payload realistic, but small enough to reuse across many tests.
     """
     return {
         "workspaceFolders": [
@@ -57,28 +55,28 @@ def build_valid_workspace_snapshot() -> dict:
                 "relativePath": ".vscode/settings.json",
                 "exists": True,
                 "parseStatus": "parsed",
-                "json": {"editor.formatOnSave": True},
+                "parsedContent": {"editor.formatOnSave": True},
                 "parseError": None,
             },
             "tasksJson": {
                 "relativePath": ".vscode/tasks.json",
                 "exists": False,
                 "parseStatus": "not_found",
-                "json": None,
+                "parsedContent": None,
                 "parseError": None,
             },
             "launchJson": {
                 "relativePath": ".vscode/launch.json",
                 "exists": False,
                 "parseStatus": "not_found",
-                "json": None,
+                "parsedContent": None,
                 "parseError": None,
             },
             "extensionsJson": {
                 "relativePath": ".vscode/extensions.json",
                 "exists": True,
                 "parseStatus": "parsed",
-                "json": {"recommendations": ["esbenp.prettier-vscode"]},
+                "parsedContent": {"recommendations": ["esbenp.prettier-vscode"]},
                 "parseError": None,
             },
         },

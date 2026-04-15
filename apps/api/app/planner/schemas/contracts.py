@@ -32,11 +32,13 @@ PlanErrorCode = Literal[
 class ContractModel(BaseModel):
     """
     Base class for shared contract models.
+
+    Important:
+    - extra fields are forbidden
+    - this prevents drifted fields like created_at from being silently ignored
     """
 
-    model_config = ConfigDict(
-        extra="forbid",
-    )
+    model_config = ConfigDict(extra="forbid")
 
 
 class UserRequest(ContractModel):
@@ -85,24 +87,13 @@ class VscodeFileInspection(ContractModel):
     """
     Normalized inspection result for one .vscode/* file.
 
-    Important:
-    - Python uses parsedContent internally
-    - the shared external contract key remains "json"
-    - this keeps parity with the TypeScript contracts and shared JSON fixtures
+    Shared contract key is parsedContent on both TS and Python.
     """
 
     relativePath: str
     exists: bool
     parseStatus: Literal["not_found", "parsed", "invalid_jsonc"]
-
-    # Accept "json" from incoming payloads, but keep parsedContent as the
-    # Python-side attribute name.
-    parsedContent: Any | None = Field(
-        default=None,
-        validation_alias="json",
-        serialization_alias="json",
-    )
-
+    parsedContent: Any | None = None
     parseError: str | None = None
 
 

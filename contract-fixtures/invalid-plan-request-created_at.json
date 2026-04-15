@@ -26,28 +26,28 @@
         "relativePath": ".vscode/settings.json",
         "exists": true,
         "parseStatus": "parsed",
-        "json": {},
+        "parsedContent": {},
         "parseError": null
       },
       "tasksJson": {
         "relativePath": ".vscode/tasks.json",
         "exists": false,
         "parseStatus": "not_found",
-        "json": null,
+        "parsedContent": null,
         "parseError": null
       },
       "launchJson": {
         "relativePath": ".vscode/launch.json",
         "exists": false,
         "parseStatus": "not_found",
-        "json": null,
+        "parsedContent": null,
         "parseError": null
       },
       "extensionsJson": {
         "relativePath": ".vscode/extensions.json",
         "exists": false,
         "parseStatus": "not_found",
-        "json": null,
+        "parsedContent": null,
         "parseError": null
       }
     },
