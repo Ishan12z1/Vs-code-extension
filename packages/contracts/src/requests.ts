@@ -115,7 +115,7 @@ export const VscodeFileInspectionSchema = z.object({
   relativePath: z.string().min(1),
   exists: z.boolean(),
   parseStatus: VscodeFileParsedStatusSchema,
-  json: z.unknown().nullable().default(null),
+  parsedContent: z.unknown().nullable().default(null),
   parseError: z.string().nullable().default(null),
 });
 
