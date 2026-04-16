@@ -1,7 +1,5 @@
 import * as vscode from "vscode";
-import { buildWorkspaceSummaryViewModel } from "../explain/buildWorkspaceSummaryViewModel";
-import { createDefaultInspectors } from "../inspectors/createDefaultInspectors";
-import { WorkspaceSnapshotBuilder } from "../inspectors/WorkspaceSnapshotBuilder";
+import { collectWorkspaceExplanation } from "../explain/collectWorkspaceExplanation";
 import type { ExtensionRuntime } from "../state/runtime";
 import {
   DEFAULT_APPROVAL_PLACEHOLDER,
@@ -22,11 +20,8 @@ import { renderSidebarShellHtml } from "./renderSidebarShellHtml";
 /**
  * Real sidebar provider for the extension shell.
  *
- * B5 adds:
- * - visible shell config
- * - refresh behavior
- * - config-change awareness
- * - polish around logs and status
+ * E6 keeps the sidebar as the one real explain surface and centralizes
+ * the explain pipeline through collectWorkspaceExplanation().
  */
 export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | undefined;
@@ -128,7 +123,10 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * B3/B4 explain flow, kept as the main read-only explanation path.
+   * Final read-only explain flow.
+   *
+   * E6 makes this the one canonical sidebar explain path.
+   * It also clears stale result/approval state before showing explanation output.
    */
   public async runExplainWorkspace(
     trigger = "explain workspace action"
@@ -138,11 +136,16 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
     await this.updateState({
       mode: "loading",
       screen: "home",
-      statusMessage: "Collecting workspace state...",
-      lastEvent: trigger,
-      errorMessage: null,
+
+      // Clear stale explain/result/error state before rebuilding.
+      explanation: null,
       resultTitle: null,
       resultBody: null,
+      approvalPlaceholder: DEFAULT_APPROVAL_PLACEHOLDER,
+      errorMessage: null,
+
+      statusMessage: "Collecting workspace state...",
+      lastEvent: trigger,
       activityItems: this.buildNextActivityItems(
         "Collecting workspace state..."
       ),
@@ -150,21 +153,21 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
     });
 
     try {
-      const builder = new WorkspaceSnapshotBuilder(
-        this.runtime,
-        createDefaultInspectors()
-      );
-
-      const snapshot = await builder.build();
-      const explanation = buildWorkspaceSummaryViewModel(snapshot);
+      const { explanation } = await collectWorkspaceExplanation(this.runtime);
 
       await this.updateState({
         mode: "showing-result",
         screen: "explanation",
+
+        // Explanation is now the active surface.
         explanation,
+        resultTitle: null,
+        resultBody: null,
+        approvalPlaceholder: DEFAULT_APPROVAL_PLACEHOLDER,
+        errorMessage: null,
+
         statusMessage: "Workspace explanation ready.",
         lastEvent: "explain workspace completed",
-        errorMessage: null,
         activityItems: this.buildNextActivityItems(
           "Built read-only workspace explanation."
         ),
@@ -188,10 +191,16 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
       await this.updateState({
         mode: "idle",
         screen: "home",
+
+        // Keep explain-mode reset behavior consistent even on failure.
         explanation: null,
+        resultTitle: null,
+        resultBody: null,
+        approvalPlaceholder: DEFAULT_APPROVAL_PLACEHOLDER,
+        errorMessage: message,
+
         statusMessage: "Workspace explanation failed.",
         lastEvent: "explain workspace failed",
-        errorMessage: message,
         activityItems: this.buildNextActivityItems(
           "Workspace explanation failed."
         ),
@@ -208,7 +217,7 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * B4 shell submit path.
+   * Shell submit path.
    */
   public async submitPrompt(prompt: string): Promise<void> {
     const trimmedPrompt = prompt.trim();

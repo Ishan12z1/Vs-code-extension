@@ -1,16 +1,15 @@
 import * as vscode from "vscode";
 import type { ExtensionRuntime } from "../state/runtime";
 import type { ControlAgentSidebarProvider } from "../webview/ControlAgentSidebarProvider";
-import { CONTROL_AGENT_SIDEBAR_VIEW_ID } from "../webview/sidebarViewId";
 
 /**
  * User-facing explain command.
  *
- * B3 changes the main behavior:
- * - focus the real sidebar
- * - run the explain flow inside the sidebar
+ * E6 change:
+ * - route through the real sidebar open command first
+ * - then run the explain flow inside that real shell
  *
- * This replaces the separate-panel path as the main UX.
+
  */
 export function registerExplainWorkspaceCommand(
   runtime: ExtensionRuntime,
@@ -19,14 +18,15 @@ export function registerExplainWorkspaceCommand(
   return vscode.commands.registerCommand(
     "controlAgent.explainWorkspace",
     async () => {
-      runtime.output.appendLine("[explain] focusing sidebar for explain flow");
-
-      await vscode.commands.executeCommand(
-        `${CONTROL_AGENT_SIDEBAR_VIEW_ID}.focus`
+      runtime.output.appendLine(
+        "[explain] routing through controlAgent.openSidebar before explain flow"
       );
 
-      sidebarProvider.reveal(false);
-      await sidebarProvider.runExplainWorkspace();
+      // Use the real shell command path first.
+      await vscode.commands.executeCommand("controlAgent.openSidebar");
+
+      // Then run the final explain flow inside that shell.
+      await sidebarProvider.runExplainWorkspace("command -> explain workspace");
     }
   );
 }
