@@ -74,14 +74,31 @@ function formatVscodeFileInspection(
 /**
  * Formats command/keybinding-related inspection rows.
  *
- * At this stage we only know command availability reliably.
+ * E2 change:
+ * - keep availability as the top-level signal
+ * - surface note text directly in the summary
+ * - only show keybinding when a future slice can resolve it
+ *
+ * We stay honest here:
+ * - keybinding is usually unresolved in this slice
+ * - the summary should say that clearly instead of pretending it knows more
  */
 function buildCommandItems(signals: KeybindingSignal[]): SummaryListItem[] {
-  return signals.map((signal) => ({
-    label: signal.command,
-    value: signal.available ? "Available" : "Unavailable",
-    tone: signal.available ? "good" : "warning",
-  }));
+  return signals.map((signal) => {
+    const baseValue = signal.available
+      ? signal.keybinding
+        ? `Available • keybinding: ${signal.keybinding}`
+        : "Available • keybinding unresolved"
+      : "Unavailable";
+
+    const value = signal.note ? `${baseValue} — ${signal.note}` : baseValue;
+
+    return {
+      label: signal.command,
+      value,
+      tone: signal.available ? "good" : "warning",
+    };
+  });
 }
 
 /**
@@ -180,9 +197,7 @@ export function buildWorkspaceSummaryViewModel(
     items: snapshot.installedTargetExtensions.map((extension) => ({
       label: extension.id,
       value: extension.installed
-        ? `Installed${extension.version ? ` (v${extension.version})` : ""}${
-            extension.isActive ? " • active" : ""
-          }`
+        ? `Installed${extension.version ? ` (v${extension.version})` : ""}${extension.isActive ? " • active" : ""}`
         : "Not installed",
       tone: extension.installed ? "good" : "warning",
     })),

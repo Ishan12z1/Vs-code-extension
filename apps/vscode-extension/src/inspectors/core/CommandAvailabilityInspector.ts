@@ -1,38 +1,30 @@
-//This inspector checks whether key commands exist.
-
 import * as vscode from "vscode";
 import type { InspectionContext, WorkspaceInspector } from "../types";
+import {
+  buildKeybindingSignals,
+  type KeybindingInspectionResult,
+} from "./buildKeybindingSignals";
 import { RELEVANT_COMMANDS } from "./relevantVscodeSignals";
 
 /**
- * Early keybinding-related inspection
+ * Keybinding-related inspection.
  *
- * For now we record whether relevant commands are available
+ * E2 hardens the earlier command-availability-only slice by:
+ * - keeping command availability checks
+ * - attaching stronger per-command notes
+ * - making the "keybinding unresolved" limitation explicit and honest
+ *
+ * We still do not pretend to know the final active binding for each command,
+ * because VS Code does not expose that through a stable public API.
  */
 export class CommandAvailabilityInspector implements WorkspaceInspector {
   public readonly id = "commandAvailability";
 
-  public async inspect(_context: InspectionContext): Promise<{
-    keybindingSignals: Array<{
-      command: string;
-      available: boolean;
-      keybinding: string | null;
-      note: string | null;
-    }>;
-    notes: string[];
-  }> {
+  public async inspect(
+    _context: InspectionContext
+  ): Promise<KeybindingInspectionResult> {
     const availableCommands = new Set(await vscode.commands.getCommands(true));
 
-    return {
-      keybindingSignals: RELEVANT_COMMANDS.map((item) => ({
-        command: item.command,
-        available: availableCommands.has(item.command),
-        keybinding: null,
-        note: item.note,
-      })),
-      notes: [
-        "Keybinding inspection is intentionally partial in this slice; command availability is recorded first.",
-      ],
-    };
+    return buildKeybindingSignals(RELEVANT_COMMANDS, availableCommands);
   }
 }
