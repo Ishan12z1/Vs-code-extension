@@ -73,7 +73,7 @@ export function inferStackSignals(foundMarkerIds: ReadonlySet<string>): {
   const notes: string[] = [];
 
   const hasPackageJson = foundMarkerIds.has("packageJson");
-  const hasTsconfig = foundMarkerIds.has("tsconfig");
+  const hasTsconfig = foundMarkerIds.has("tsconfigJson");
   const hasPyproject = foundMarkerIds.has("pyprojectToml");
   const hasRequirements = foundMarkerIds.has("requirementsTxt");
   const hasEslint = foundMarkerIds.has("eslintConfig");
