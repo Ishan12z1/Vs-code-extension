@@ -13,7 +13,7 @@ function createEmptyVscodeFileInspection(
     relativePath,
     exists: false,
     parseStatus: "not_found",
-    json: null,
+    parsedContent: null,
     parseError: null,
   };
 }
