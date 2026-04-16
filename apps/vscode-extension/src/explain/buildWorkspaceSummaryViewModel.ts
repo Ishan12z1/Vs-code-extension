@@ -24,6 +24,33 @@ function joinOrFallback(values: string[], fallback = "None detected"): string {
 }
 
 /**
+ * Narrow helper: accept only plain objects for parsed JSON content.
+ */
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+/**
+ * Narrow helper: get one array field from a parsed JSON object.
+ */
+function getArrayField(
+  record: Record<string, unknown> | null,
+  key: string
+): unknown[] | null {
+  if (!record) {
+    return null;
+  }
+
+  const value = record[key];
+
+  return Array.isArray(value) ? value : null;
+}
+
+/**
  * Formats a settings record into summary rows.
  */
 function buildSettingsItems(
@@ -73,15 +100,6 @@ function formatVscodeFileInspection(
 
 /**
  * Formats command/keybinding-related inspection rows.
- *
- * E2 change:
- * - keep availability as the top-level signal
- * - surface note text directly in the summary
- * - only show keybinding when a future slice can resolve it
- *
- * We stay honest here:
- * - keybinding is usually unresolved in this slice
- * - the summary should say that clearly instead of pretending it knows more
  */
 function buildCommandItems(signals: KeybindingSignal[]): SummaryListItem[] {
   return signals.map((signal) => {
@@ -99,6 +117,79 @@ function buildCommandItems(signals: KeybindingSignal[]): SummaryListItem[] {
       tone: signal.available ? "good" : "warning",
     };
   });
+}
+
+/**
+ * Builds focused task/debug summary items from parsed tasks.json and launch.json.
+ *
+ * E3 purpose:
+ * - surface task/debug-specific signals directly in the explanation UI
+ * - keep this derived from parsedContent instead of introducing new contract
+ *   fields too early
+ */
+function buildTaskAndDebugItems(
+  snapshot: WorkspaceSnapshot
+): SummaryListItem[] {
+  const items: SummaryListItem[] = [];
+
+  const tasksFile = snapshot.vscodeFiles.tasksJson;
+  const launchFile = snapshot.vscodeFiles.launchJson;
+
+  if (!tasksFile.exists) {
+    items.push({
+      label: "tasks.json",
+      value: "Not found",
+      tone: "muted",
+    });
+  } else if (tasksFile.parseStatus === "invalid_jsonc") {
+    items.push({
+      label: "tasks.json",
+      value: `Invalid JSONC (${tasksFile.parseError ?? "unknown parse error"})`,
+      tone: "warning",
+    });
+  } else {
+    const tasksRecord = asRecord(tasksFile.parsedContent);
+    const tasks = getArrayField(tasksRecord, "tasks");
+    const inputs = getArrayField(tasksRecord, "inputs");
+
+    items.push({
+      label: "tasks.json",
+      value:
+        tasks && tasks.length > 0
+          ? `${tasks.length} task definition(s) detected${inputs && inputs.length > 0 ? ` • ${inputs.length} input definition(s)` : ""}`
+          : "Present, but no task definitions detected",
+      tone: tasks && tasks.length > 0 ? "good" : "warning",
+    });
+  }
+
+  if (!launchFile.exists) {
+    items.push({
+      label: "launch.json",
+      value: "Not found",
+      tone: "muted",
+    });
+  } else if (launchFile.parseStatus === "invalid_jsonc") {
+    items.push({
+      label: "launch.json",
+      value: `Invalid JSONC (${launchFile.parseError ?? "unknown parse error"})`,
+      tone: "warning",
+    });
+  } else {
+    const launchRecord = asRecord(launchFile.parsedContent);
+    const configurations = getArrayField(launchRecord, "configurations");
+    const compounds = getArrayField(launchRecord, "compounds");
+
+    items.push({
+      label: "launch.json",
+      value:
+        configurations && configurations.length > 0
+          ? `${configurations.length} debug configuration(s) detected${compounds && compounds.length > 0 ? ` • ${compounds.length} compound(s)` : ""}`
+          : "Present, but no debug configurations detected",
+      tone: configurations && configurations.length > 0 ? "good" : "warning",
+    });
+  }
+
+  return items;
 }
 
 /**
@@ -192,6 +283,12 @@ export function buildWorkspaceSummaryViewModel(
     ],
   };
 
+  const taskAndDebugSection: SummarySection = {
+    title: "Tasks and debug",
+    items: buildTaskAndDebugItems(snapshot),
+    emptyMessage: "No task/debug signals were collected.",
+  };
+
   const extensionsSection: SummarySection = {
     title: "Selected extension state",
     items: snapshot.installedTargetExtensions.map((extension) => ({
@@ -228,6 +325,7 @@ export function buildWorkspaceSummaryViewModel(
       userSettingsSection,
       workspaceSettingsSection,
       vscodeFilesSection,
+      taskAndDebugSection,
       extensionsSection,
       commandsSection,
       notesSection,

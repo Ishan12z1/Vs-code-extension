@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import type {
-  //VscodeFileInspection,
+  // VscodeFileInspection,
   WorkspaceSnapshot,
 } from "@control-agent/contracts";
 import { readWorkspaceTextFile } from "../fs/readWorkspaceFile";
@@ -10,20 +10,15 @@ import {
   aggregateManagedVscodeFileInspections,
   type FolderManagedVscodeFileInspection,
 } from "./aggregateManagedVscodeFileInspections";
+import { buildTaskAndDebugNotes } from "./buildTaskAndDebugNotes";
 
 /**
  * Inspect the four V1-managed .vscode/* files in a read-only way.
  *
- *
+ * E4 + E3 behavior:
  * - inspect all workspace folders instead of only the first one
- * - aggregate one normalized representative entry per managed file type
- * - emit explicit multi-root notes when several folders contain the same file
- *
- * Important constraint:
- * - the current shared snapshot contract still has one normalized entry per
- *   managed file kind, not one entry per workspace folder
- * - because of that, this inspector chooses one representative inspection and
- *   explains any multi-root ambiguity through notes
+ * - aggregate one normalized representative entry per managed file kind
+ * - add targeted task/debug notes derived from parsed tasks.json / launch.json
  */
 export class VscodeConfigFilesInspector implements WorkspaceInspector {
   public readonly id = "vscodeConfigFiles";
@@ -40,13 +35,6 @@ export class VscodeConfigFilesInspector implements WorkspaceInspector {
     }
 
     const notes: string[] = [];
-
-    /**
-     * Inspect all workspace folders for each of the four managed file kinds.
-     *
-     * Keep the relative paths explicit and stable so later summary logic and
-     * tests do not depend on hidden ordering.
-     */
     const managedRelativePaths = [
       ".vscode/settings.json",
       ".vscode/tasks.json",
@@ -89,25 +77,14 @@ export class VscodeConfigFilesInspector implements WorkspaceInspector {
       aggregatedExtensions,
     ];
 
-    /**
-     * Mark the .vscode folder as effectively present if at least one managed file
-     * exists in any workspace folder.
-     */
     const vscodeFolderPresent = allAggregated.some(
       (result) => result.inspection.exists
     );
 
-    /**
-     * Relevant files should include the concrete workspace-relative file paths
-     * that actually exist across the whole workspace context.
-     */
     const relevantFiles = allAggregated.flatMap(
       (result) => result.relevantFiles
     );
 
-    /**
-     * Surface any invalid JSONC states and multi-root ambiguity notes.
-     */
     notes.push(...allAggregated.flatMap((result) => result.notes));
 
     for (const result of allAggregated) {
@@ -120,15 +97,20 @@ export class VscodeConfigFilesInspector implements WorkspaceInspector {
       }
     }
 
+    const vscodeFiles = {
+      settingsJson: aggregatedSettings.inspection,
+      tasksJson: aggregatedTasks.inspection,
+      launchJson: aggregatedLaunch.inspection,
+      extensionsJson: aggregatedExtensions.inspection,
+    };
+
+    // E3: derive stronger task/debug notes from parsed tasks.json and launch.json.
+    notes.push(...buildTaskAndDebugNotes(vscodeFiles));
+
     return {
       vscodeFolderPresent,
       relevantFiles,
-      vscodeFiles: {
-        settingsJson: aggregatedSettings.inspection,
-        tasksJson: aggregatedTasks.inspection,
-        launchJson: aggregatedLaunch.inspection,
-        extensionsJson: aggregatedExtensions.inspection,
-      },
+      vscodeFiles,
       notes,
     };
   }
