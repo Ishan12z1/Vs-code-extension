@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     # Tracing is still just a flag for now.
     tracing_enabled: bool = False
 
+    planner_provider: str = Field(
+        default="mock",
+        validation_alias=AliasChoices(
+            "CONTROL_AGENT_PLANNER_PROVIDER",
+            "PLANNER_PROVIDER",
+        ),
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore",

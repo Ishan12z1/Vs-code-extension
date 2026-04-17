@@ -1,27 +1,33 @@
 from fastapi import APIRouter
 
-from app.planner.schemas import ErrorPayload, PlanError, PlanRequest, PlanResponse
+from app.planner.providers.factory import build_planner_provider
+from app.planner.schemas import PlanRequest, PlanResponse
+from app.planner.service import PlannerService
 
 router = APIRouter(prefix="/plan", tags=["plan"])
 
+# Step 6.1:
+# Build one planner service backed by the configured provider.
+# Right now that provider is still the mock placeholder provider.
+planner_service = PlannerService(provider=build_planner_provider())
+
 
 @router.post("", response_model=PlanResponse)
-def create_plan(payload: PlanRequest) -> ErrorPayload:
+def create_plan(payload: PlanRequest) -> PlanResponse:
     """
     Planner entry route.
-    - FastAPI now validates PlanRequest at the real request boundary
-    - malformed shared payloads fail with 422 before this handler runs
-    - the route keeps returning a structured not_implemented error for now
-      because planner logic still belongs to later steps
+
+    What this route does now:
+    - FastAPI validates the shared PlanRequest at the request boundary
+    - the route delegates planner work to PlannerService
+    - PlannerService delegates to a PlannerProvider
+    - the current provider is still a structured placeholder
+
+    What this route intentionally does NOT do yet:
+    - request classification
+    - real planning
+    - prompt orchestration
+    - provider SDK wiring
+    - persistence
     """
-    return ErrorPayload(
-        kind="error",
-        error=PlanError(
-            code="not_implemented",
-            message=(f"Planning is not implemented yet for request: {payload.userRequest.text}"),
-            details={
-                "requestId": payload.userRequest.id,
-                "requestClassHint": payload.userRequest.requestClassHint,
-            },
-        ),
-    )
+    return planner_service.generate(payload)
