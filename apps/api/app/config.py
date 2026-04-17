@@ -60,6 +60,32 @@ class Settings(BaseSettings):
         ),
     )
 
+    # Google provider configuration.
+    #
+    # Keep names explicit and backend-owned.
+    google_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "CONTROL_AGENT_GOOGLE_API_KEY",
+            "GOOGLE_API_KEY",
+        ),
+    )
+    google_model: str = Field(
+        default="gemini-2.5-flash-lite",
+        validation_alias=AliasChoices(
+            "CONTROL_AGENT_GOOGLE_MODEL",
+            "GOOGLE_MODEL",
+        ),
+    )
+    planner_provider_timeout_seconds: int = Field(
+        default=30,
+        ge=1,
+        validation_alias=AliasChoices(
+            "CONTROL_AGENT_PLANNER_PROVIDER_TIMEOUT_SECONDS",
+            "PLANNER_PROVIDER_TIMEOUT_SECONDS",
+        ),
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore",

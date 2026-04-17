@@ -5,27 +5,22 @@ from app.planner.policy import PlannerPolicyBuilder
 from app.planner.prompts import PlannerPromptBuilder
 from app.planner.providers.base import PlannerProvider
 from app.planner.schemas import ErrorPayload, PlanError, PlanRequest, PlanResponse
+from app.planner.validation import PlannerResponseValidator
 
 
 class PlannerService:
     """
     Thin backend orchestration layer for planner calls.
 
-    Step 6.2 added:
-    - request classification before provider execution
-    - early unsupported-request rejection
-
-    Step 6.3 added:
-    - backend-owned allowed-action and risk-policy construction
-
-    Step 6.4 adds:
-    - backend-owned prompt contract construction
+    Step 6.2 added classification.
+    Step 6.3 added bounded policy.
+    Step 6.4 added prompt contracts.
+    Step 6.5 added provider adapter invocation.
+    Step 6.6 adds structured output validation.
 
     Still intentionally missing:
-    - model orchestration
-    - actual SDK adapter
-    - plan validation/repair
-    - persistence
+    - repair / retry (Step 6.7)
+    - persistence (Step 6.8)
     """
 
     def __init__(
@@ -34,17 +29,19 @@ class PlannerService:
         classifier: RequestClassifier | None = None,
         policy_builder: PlannerPolicyBuilder | None = None,
         prompt_builder: PlannerPromptBuilder | None = None,
+        response_validator: PlannerResponseValidator | None = None,
     ) -> None:
         self._provider = provider
         self._classifier = classifier or RequestClassifier()
         self._policy_builder = policy_builder or PlannerPolicyBuilder()
         self._prompt_builder = prompt_builder or PlannerPromptBuilder()
+        self._response_validator = response_validator or PlannerResponseValidator()
 
     def generate(self, payload: PlanRequest) -> PlanResponse:
         """
-        Resolve request class first, reject obviously unsupported asks early,
-        build bounded policy input, build normalized prompt input, then delegate
-        to the configured provider.
+        Resolve request class, reject unsupported asks early, build policy,
+        build prompt package, invoke the provider, then validate raw provider
+        output against the shared public response contract.
         """
         classification = self._classifier.classify(payload)
 
@@ -72,9 +69,29 @@ class PlannerService:
             policy=policy,
         )
 
-        return self._provider.generate(
-            payload=payload,
-            classification=classification,
-            policy=policy,
+        try:
+            provider_result = self._provider.generate(
+                payload=payload,
+                classification=classification,
+                policy=policy,
+                prompt_package=prompt_package,
+            )
+        except Exception as exc:
+            return ErrorPayload(
+                kind="error",
+                error=PlanError(
+                    code="internal_error",
+                    message="Planner provider invocation failed.",
+                    details={
+                        "requestId": payload.userRequest.id,
+                        "provider": getattr(self._provider, "name", "unknown"),
+                        "errorType": type(exc).__name__,
+                        "errorMessage": str(exc),
+                    },
+                ),
+            )
+
+        return self._response_validator.validate(
+            provider_result=provider_result,
             prompt_package=prompt_package,
         )

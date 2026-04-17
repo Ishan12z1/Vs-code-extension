@@ -1,19 +1,21 @@
 from __future__ import annotations
 
+import json
+
 from app.planner.classifier import RequestClassification
 from app.planner.policy import PlannerPolicy
 from app.planner.prompts import PlannerPromptPackage
 from app.planner.providers.base import PlannerProvider
-from app.planner.schemas import ErrorPayload, PlanError, PlanRequest, PlanResponse
+from app.planner.providers.types import ProviderGenerationResult
+from app.planner.schemas import PlanRequest
 
 
 class MockPlannerProvider(PlannerProvider):
     """
     Safe placeholder planner provider.
 
-    Step 6.4 change:
-    - it now receives the normalized prompt package
-    - this lets us verify prompt-path wiring before real SDK integration exists
+    In 6.6, the mock provider returns raw JSON text that already conforms to the
+    shared public PlanResponse contract, so the validator can accept it.
     """
 
     name = "mock"
@@ -24,28 +26,31 @@ class MockPlannerProvider(PlannerProvider):
         classification: RequestClassification,
         policy: PlannerPolicy,
         prompt_package: PlannerPromptPackage,
-    ) -> PlanResponse:
-        return ErrorPayload(
-            kind="error",
-            error=PlanError(
-                code="not_implemented",
-                message=(f"Planning is not implemented yet for request: {payload.userRequest.text}"),
-                details={
+    ) -> ProviderGenerationResult:
+        raw_payload = {
+            "kind": "error",
+            "error": {
+                "code": "not_implemented",
+                "message": (
+                    "Mock provider placeholder. Real model generation is not "
+                    "implemented in the mock provider."
+                ),
+                "details": {
                     "requestId": payload.userRequest.id,
-                    "requestClassHint": payload.userRequest.requestClassHint,
                     "resolvedRequestClass": classification.requestClass,
-                    "classificationSource": classification.source,
-                    "classificationReason": classification.reason,
-                    "classificationWarnings": classification.warnings,
-                    "supportsPlanning": policy.supportsPlanning,
-                    "allowedActionTypes": [action.actionType for action in policy.allowedActions],
-                    "policyRules": policy.policyRules,
                     "promptMode": prompt_package.mode,
-                    "promptMessageCount": len(prompt_package.messages),
-                    "promptSystemPreview": (
-                        prompt_package.messages[0].content[:200] if prompt_package.messages else ""
-                    ),
+                    "supportsPlanning": policy.supportsPlanning,
                     "provider": self.name,
                 },
-            ),
+            },
+        }
+
+        return ProviderGenerationResult(
+            rawText=json.dumps(raw_payload, indent=2, sort_keys=True),
+            providerName=self.name,
+            modelName="none",
+            metadata={
+                "promptMode": prompt_package.mode,
+                "supportsPlanning": policy.supportsPlanning,
+            },
         )
