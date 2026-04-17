@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from app.planner.classifier import RequestClassification
 from app.planner.schemas import PlanRequest, PlanResponse
 
 
@@ -9,14 +10,22 @@ from app.planner.schemas import PlanRequest, PlanResponse
 class PlannerProvider(Protocol):
     """
     Backend-only planner provider boundary.
+
+    Important:
+    - this is NOT a new shared contract layer
     - it sits behind the already-existing PlanRequest / PlanResponse contracts
     - route handlers and services depend on this boundary, not on SDK types
     """
 
     name: str
 
-    def generate(self, payload: PlanRequest) -> PlanResponse:
+    def generate(
+        self,
+        payload: PlanRequest,
+        classification: RequestClassification,
+    ) -> PlanResponse:
         """
-        Accept the validated planner request and return a validated planner response.
+        Accept the validated planner request plus the resolved internal request
+        classification and return a validated planner response.
         """
         ...

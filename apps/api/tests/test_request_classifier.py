@@ -1,6 +1,7 @@
-from app.planner.providers.mock import MockPlannerProvider
+import pytest
+
+from app.planner.classifier import RequestClassifier
 from app.planner.schemas import PlanRequest
-from app.planner.service import PlannerService
 
 
 def build_valid_workspace_snapshot() -> dict:
@@ -90,27 +91,66 @@ def build_request(text: str, hint: str | None = None) -> PlanRequest:
     return PlanRequest.model_validate(payload)
 
 
-def test_planner_service_passes_resolved_request_class_to_provider() -> None:
-    provider = MockPlannerProvider()
-    service = PlannerService(provider=provider)
+@pytest.mark.parametrize(
+    ("text", "expected_class"),
+    [
+        ("Explain my current VS Code setup", "explain"),
+        ("Inspect this workspace configuration", "inspect"),
+        ("Enable format on save for this workspace", "configure"),
+        ("Fix my Prettier setup", "repair"),
+        (
+            "Should this go in user settings or workspace settings?",
+            "guide",
+        ),
+    ],
+)
+def test_request_classifier_resolves_expected_class_from_text(
+    text: str,
+    expected_class: str,
+) -> None:
+    classifier = RequestClassifier()
 
-    response = service.generate(build_request("Explain my current VS Code setup", hint="explain"))
+    result = classifier.classify(build_request(text))
 
-    assert response.kind == "error"
-    assert response.error.code == "not_implemented"
-    assert response.error.details is not None
-    assert response.error.details["provider"] == "mock"
-    assert response.error.details["resolvedRequestClass"] == "explain"
-    assert response.error.details["classificationSource"] in {"hint", "rule", "fallback"}
+    assert result.isSupported is True
+    assert result.requestClass == expected_class
 
 
-def test_planner_service_rejects_unsupported_requests_before_provider_execution() -> None:
-    provider = MockPlannerProvider()
-    service = PlannerService(provider=provider)
+def test_request_classifier_overrides_conflicting_hint_when_text_is_strong() -> None:
+    classifier = RequestClassifier()
 
-    response = service.generate(build_request("Run shell commands to install dependencies"))
+    result = classifier.classify(
+        build_request(
+            text="Enable format on save for this workspace",
+            hint="explain",
+        )
+    )
 
-    assert response.kind == "error"
-    assert response.error.code == "unsupported_request"
-    assert response.error.details is not None
-    assert response.error.details["resolvedRequestClass"] == "guide"
+    assert result.isSupported is True
+    assert result.requestClass == "configure"
+    assert result.source == "rule"
+    assert any("Overrode requestClassHint" in warning for warning in result.warnings)
+
+
+def test_request_classifier_keeps_soft_explain_inspect_hint() -> None:
+    classifier = RequestClassifier()
+
+    result = classifier.classify(
+        build_request(
+            text="Show my current setup",
+            hint="explain",
+        )
+    )
+
+    assert result.isSupported is True
+    assert result.requestClass == "explain"
+    assert result.source == "hint"
+
+
+def test_request_classifier_rejects_obviously_unsupported_request() -> None:
+    classifier = RequestClassifier()
+
+    result = classifier.classify(build_request("Run shell commands to install dependencies"))
+
+    assert result.isSupported is False
+    assert result.unsupportedReason is not None
