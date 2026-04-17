@@ -4,6 +4,7 @@ from typing import Protocol, runtime_checkable
 
 from app.planner.classifier import RequestClassification
 from app.planner.policy import PlannerPolicy
+from app.planner.prompts import PlannerPromptPackage
 from app.planner.schemas import PlanRequest, PlanResponse
 
 
@@ -25,9 +26,10 @@ class PlannerProvider(Protocol):
         payload: PlanRequest,
         classification: RequestClassification,
         policy: PlannerPolicy,
+        prompt_package: PlannerPromptPackage,
     ) -> PlanResponse:
         """
-        Accept the validated planner request plus backend-owned classification and
-        policy inputs, then return a validated planner response.
+        Accept validated request input plus backend-owned classification, policy,
+        and prompt package, then return a validated planner response.
         """
         ...

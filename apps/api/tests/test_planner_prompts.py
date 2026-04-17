@@ -1,6 +1,7 @@
-from app.planner.providers.mock import MockPlannerProvider
+from app.planner.classifier import RequestClassifier
+from app.planner.policy import PlannerPolicyBuilder
+from app.planner.prompts import PlannerPromptBuilder
 from app.planner.schemas import PlanRequest
-from app.planner.service import PlannerService
 
 
 def build_valid_workspace_snapshot() -> dict:
@@ -90,31 +91,47 @@ def build_request(text: str, hint: str | None = None) -> PlanRequest:
     return PlanRequest.model_validate(payload)
 
 
-def test_planner_service_passes_classification_policy_and_prompt_package_to_provider() -> None:
-    provider = MockPlannerProvider()
-    service = PlannerService(provider=provider)
+def test_prompt_builder_uses_explanation_mode_for_explain_request() -> None:
+    classifier = RequestClassifier()
+    policy_builder = PlannerPolicyBuilder()
+    prompt_builder = PlannerPromptBuilder()
 
-    response = service.generate(build_request("Enable format on save for this workspace", hint="configure"))
+    payload = build_request("Explain my current VS Code setup", "explain")
+    classification = classifier.classify(payload)
+    policy = policy_builder.build(classification.requestClass)
 
-    assert response.kind == "error"
-    assert response.error.code == "not_implemented"
-    assert response.error.details is not None
-    assert response.error.details["provider"] == "mock"
-    assert response.error.details["resolvedRequestClass"] == "configure"
-    assert response.error.details["supportsPlanning"] is True
-    assert "updateWorkspaceSettings" in response.error.details["allowedActionTypes"]
-    assert response.error.details["promptMode"] == "plan"
-    assert response.error.details["promptMessageCount"] == 2
+    prompt_package = prompt_builder.build(
+        payload=payload,
+        classification=classification,
+        policy=policy,
+    )
+
+    assert prompt_package.mode == "explanation"
+    assert prompt_package.requestClass == "explain"
+    assert len(prompt_package.messages) == 2
+    assert "mustNotGenerateActions" in prompt_package.messages[1].content
 
 
-def test_planner_service_uses_explanation_prompt_mode_for_explain_requests() -> None:
-    provider = MockPlannerProvider()
-    service = PlannerService(provider=provider)
+def test_prompt_builder_uses_plan_mode_for_configure_request() -> None:
+    classifier = RequestClassifier()
+    policy_builder = PlannerPolicyBuilder()
+    prompt_builder = PlannerPromptBuilder()
 
-    response = service.generate(build_request("Explain my current VS Code setup", hint="explain"))
+    payload = build_request(
+        "Enable format on save for this workspace",
+        "configure",
+    )
+    classification = classifier.classify(payload)
+    policy = policy_builder.build(classification.requestClass)
 
-    assert response.kind == "error"
-    assert response.error.code == "not_implemented"
-    assert response.error.details is not None
-    assert response.error.details["promptMode"] == "explanation"
-    assert response.error.details["supportsPlanning"] is False
+    prompt_package = prompt_builder.build(
+        payload=payload,
+        classification=classification,
+        policy=policy,
+    )
+
+    assert prompt_package.mode == "plan"
+    assert prompt_package.requestClass == "configure"
+    assert len(prompt_package.messages) == 2
+    assert "mustUseOnlyAllowedActions" in prompt_package.messages[1].content
+    assert "updateWorkspaceSettings" in prompt_package.messages[1].content
