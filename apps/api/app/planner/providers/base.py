@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable
 
 from app.planner.classifier import RequestClassification
+from app.planner.policy import PlannerPolicy
 from app.planner.schemas import PlanRequest, PlanResponse
 
 
@@ -23,9 +24,10 @@ class PlannerProvider(Protocol):
         self,
         payload: PlanRequest,
         classification: RequestClassification,
+        policy: PlannerPolicy,
     ) -> PlanResponse:
         """
-        Accept the validated planner request plus the resolved internal request
-        classification and return a validated planner response.
+        Accept the validated planner request plus backend-owned classification and
+        policy inputs, then return a validated planner response.
         """
         ...

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.planner.classifier import RequestClassifier
+from app.planner.policy import PlannerPolicyBuilder
 from app.planner.providers.base import PlannerProvider
 from app.planner.schemas import ErrorPayload, PlanError, PlanRequest, PlanResponse
 
@@ -9,9 +10,12 @@ class PlannerService:
     """
     Thin backend orchestration layer for planner calls.
 
-    Step 6.2 adds:
+    Step 6.2 added:
     - request classification before provider execution
     - early unsupported-request rejection
+
+    Step 6.3 adds:
+    - backend-owned allowed-action and risk-policy construction
 
     Still intentionally missing:
     - model orchestration
@@ -24,14 +28,16 @@ class PlannerService:
         self,
         provider: PlannerProvider,
         classifier: RequestClassifier | None = None,
+        policy_builder: PlannerPolicyBuilder | None = None,
     ) -> None:
         self._provider = provider
         self._classifier = classifier or RequestClassifier()
+        self._policy_builder = policy_builder or PlannerPolicyBuilder()
 
     def generate(self, payload: PlanRequest) -> PlanResponse:
         """
         Resolve request class first, reject obviously unsupported asks early,
-        then delegate to the configured provider.
+        build bounded policy input, then delegate to the configured provider.
         """
         classification = self._classifier.classify(payload)
 
@@ -52,4 +58,6 @@ class PlannerService:
                 ),
             )
 
-        return self._provider.generate(payload, classification)
+        policy = self._policy_builder.build(classification.requestClass)
+
+        return self._provider.generate(payload, classification, policy)

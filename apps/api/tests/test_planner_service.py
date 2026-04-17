@@ -90,21 +90,24 @@ def build_request(text: str, hint: str | None = None) -> PlanRequest:
     return PlanRequest.model_validate(payload)
 
 
-def test_planner_service_passes_resolved_request_class_to_provider() -> None:
+def test_planner_service_passes_resolved_request_class_and_policy_to_provider() -> None:
     provider = MockPlannerProvider()
     service = PlannerService(provider=provider)
 
-    response = service.generate(build_request("Explain my current VS Code setup", hint="explain"))
+    response = service.generate(
+        build_request("Enable format on save for this workspace", hint="configure")
+    )
 
     assert response.kind == "error"
     assert response.error.code == "not_implemented"
     assert response.error.details is not None
     assert response.error.details["provider"] == "mock"
-    assert response.error.details["resolvedRequestClass"] == "explain"
-    assert response.error.details["classificationSource"] in {"hint", "rule", "fallback"}
+    assert response.error.details["resolvedRequestClass"] == "configure"
+    assert response.error.details["supportsPlanning"] is True
+    assert "updateWorkspaceSettings" in response.error.details["allowedActionTypes"]
 
 
-def test_planner_service_rejects_unsupported_requests_before_provider_execution() -> None:
+def test_planner_service_rejects_unsupported_requests_before_policy_and_provider() -> None:
     provider = MockPlannerProvider()
     service = PlannerService(provider=provider)
 
