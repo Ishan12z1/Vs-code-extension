@@ -22,4 +22,5 @@ class ProviderGenerationResult(BaseModel):
     modelName: str | None = None
     responseId: str | None = None
     finishReason: str | None = None
+    parsedJson: Any | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
