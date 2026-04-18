@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Union
+from typing import Annotated, Any, Dict, List, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 # Shared literal types kept aligned with the TypeScript contracts package.
 RequestClass = Literal["explain", "inspect", "configure", "repair", "guide"]
@@ -314,7 +314,14 @@ class ErrorPayload(ContractModel):
     error: PlanError
 
 
-PlanResponse = Union[PlanPayload, ExplanationPayload, ErrorPayload]
+# IMPORTANT:
+# Mirror the TypeScript discriminated union on "kind".
+# This keeps Python validation behavior aligned with the shared TS contract and
+# avoids noisy validation across unrelated branches once "kind" is present.
+PlanResponse = Annotated[
+    Union[PlanPayload, ExplanationPayload, ErrorPayload],
+    Field(discriminator="kind"),
+]
 
 
 class ApprovalDecisionRequest(ContractModel):
@@ -342,3 +349,16 @@ def validate_execution_plan(payload: dict) -> ExecutionPlan:
     Small helper used by the backend to validate a generated execution plan.
     """
     return ExecutionPlan.model_validate(payload)
+
+
+_PLAN_RESPONSE_ADAPTER = TypeAdapter(PlanResponse)
+
+
+def validate_plan_response(payload: dict) -> PlanResponse:
+    """
+    Validate one payload against the shared discriminated planner response
+    contract.
+
+    This mirrors the TypeScript discriminated union on `kind`.
+    """
+    return _PLAN_RESPONSE_ADAPTER.validate_python(payload)

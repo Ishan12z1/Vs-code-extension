@@ -21,6 +21,7 @@ from .contracts import (
     WorkspaceSnapshotAcceptanceResponse,
     WorkspaceSnapshotAcceptanceSummary,
     validate_execution_plan,
+    validate_plan_response,
 )
 
 __all__ = [
@@ -46,4 +47,5 @@ __all__ = [
     "WorkspaceSnapshotAcceptanceResponse",
     "WorkspaceSnapshotAcceptanceSummary",
     "validate_execution_plan",
+    "validate_plan_response",
 ]
