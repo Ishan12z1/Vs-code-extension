@@ -7,20 +7,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.planner.classifier import RequestClassification
 from app.planner.policy import PlannerPolicy
+from app.planner.providers.types import ProviderGenerationResult
 from app.planner.schemas import PlanRequest
 from app.planner.schemas.contracts import RequestClass
 
-PromptMode = Literal["explanation", "plan"]
+PromptMode = Literal["explanation", "plan", "retry"]
 
 
 class PromptMessage(BaseModel):
-    """
-    One normalized prompt message entry.
-
-    Backend-only contract.
-    This is not a shared public API model.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     role: Literal["system", "user"]
@@ -28,12 +22,6 @@ class PromptMessage(BaseModel):
 
 
 class PlannerPromptPackage(BaseModel):
-    """
-    Backend-owned prompt package passed to planner providers.
-
-    This keeps prompt construction outside provider SDK adapters.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     mode: PromptMode
@@ -43,12 +31,10 @@ class PlannerPromptPackage(BaseModel):
 
 class PlannerPromptBuilder:
     """
-    Build normalized prompt packages for the planner provider.
+    Prompt builder after switching to structured JSON generation.
 
-    Step 6.4 goal:
-    - freeze prompt structure
-    - separate explanation vs plan paths
-    - keep prompt building backend-owned and provider-agnostic
+    Because the schema now enforces output shape, the prompt can stay shorter and
+    focus on intent, policy, and domain constraints.
     """
 
     def build(
@@ -57,9 +43,7 @@ class PlannerPromptBuilder:
         classification: RequestClassification,
         policy: PlannerPolicy,
     ) -> PlannerPromptPackage:
-        """
-        Build the correct prompt package based on the resolved request class.
-        """
+
         if classification.requestClass in ("explain", "inspect"):
             return self._build_explanation_prompt(
                 payload=payload,
@@ -73,6 +57,39 @@ class PlannerPromptBuilder:
             policy=policy,
         )
 
+    def build_retry_for_invalid_output(
+        self,
+        *,
+        payload: PlanRequest,
+        classification: RequestClassification,
+        policy: PlannerPolicy,
+        previous_prompt: PlannerPromptPackage,
+        previous_provider_result: ProviderGenerationResult,
+        validation_reason: str,
+    ) -> PlannerPromptPackage:
+        retry_payload = {
+            "task": "Correct your previous response so it matches the required draft execution plan JSON schema.",
+            "validationReason": validation_reason,
+            "requestText": payload.userRequest.text,
+            "resolvedRequestClass": classification.requestClass,
+            "allowedActions": [action.model_dump(mode="json") for action in policy.allowedActions],
+            "policyRules": policy.policyRules,
+            "workspaceSnapshot": payload.workspaceSnapshot.model_dump(mode="json"),
+            "previousRawOutput": previous_provider_result.rawText[:4000],
+        }
+
+        return PlannerPromptPackage(
+            mode="retry",
+            requestClass=classification.requestClass,
+            messages=[
+                PromptMessage(
+                    role="system",
+                    content=("Return corrected structured JSON only. Do not add prose or markdown fences."),
+                ),
+                PromptMessage(role="user", content=self._pretty_json(retry_payload)),
+            ],
+        )
+
     def _build_explanation_prompt(
         self,
         *,
@@ -80,45 +97,23 @@ class PlannerPromptBuilder:
         classification: RequestClassification,
         policy: PlannerPolicy,
     ) -> PlannerPromptPackage:
-        """
-        Prompt contract for explanation / diagnosis style responses.
-
-        These requests should not produce executable actions in this path.
-        """
-        system_content = "\n".join(
-            [
-                "You are the planning backend for VS Code Control Agent.",
-                "Your job in this prompt path is to return an explanation-oriented result.",
-                "Do not generate execution steps or arbitrary actions in this mode.",
-                "Stay within supported VS Code-native reasoning.",
-                "Use the provided workspace snapshot and request classification.",
-                "If the request is unsupported, return a clear refusal-oriented explanation.",
-            ]
-        )
-
         user_payload = {
+            "task": "Explain the user's VS Code situation using the workspace snapshot.",
             "requestText": payload.userRequest.text,
-            "requestClassHint": payload.userRequest.requestClassHint,
             "resolvedRequestClass": classification.requestClass,
-            "classificationReason": classification.reason,
             "workspaceSnapshot": payload.workspaceSnapshot.model_dump(mode="json"),
             "policyRules": policy.policyRules,
-            "responseContract": {
-                "kind": "explanation",
-                "requestClassAllowed": ["explain", "inspect", "guide"],
-                "mustNotGenerateActions": True,
-            },
         }
 
         return PlannerPromptPackage(
             mode="explanation",
             requestClass=classification.requestClass,
             messages=[
-                PromptMessage(role="system", content=system_content),
                 PromptMessage(
-                    role="user",
-                    content=self._pretty_json(user_payload),
+                    role="system",
+                    content=("You are the VS Code Control Agent planner. Return structured JSON only."),
                 ),
+                PromptMessage(role="user", content=self._pretty_json(user_payload)),
             ],
         )
 
@@ -129,57 +124,32 @@ class PlannerPromptBuilder:
         classification: RequestClassification,
         policy: PlannerPolicy,
     ) -> PlannerPromptPackage:
-        """
-        Prompt contract for execution-plan style responses.
-
-        These requests may generate structured actions, but only from the allowed
-        action catalog and only within the bounded policy rules.
-        """
-        system_content = "\n".join(
-            [
-                "You are the planning backend for VS Code Control Agent.",
-                "Your job in this prompt path is to return a bounded execution plan.",
-                "Only use action types from the provided allowedActions catalog.",
-                "Do not generate arbitrary shell or terminal execution.",
-                "Do not generate arbitrary repo-wide source code edits.",
-                "Do not widen scope silently from workspace to user.",
-                "Use the default risk and approval posture from policy unless strong justification exists.",
-                "If the request cannot be satisfied within the bounded action catalog, refuse clearly.",
-            ]
-        )
-
         user_payload = {
+            "task": "Produce a bounded VS Code execution plan draft object.",
             "requestText": payload.userRequest.text,
-            "requestClassHint": payload.userRequest.requestClassHint,
             "resolvedRequestClass": classification.requestClass,
-            "classificationReason": classification.reason,
             "workspaceSnapshot": payload.workspaceSnapshot.model_dump(mode="json"),
             "allowedActions": [action.model_dump(mode="json") for action in policy.allowedActions],
             "policyRules": policy.policyRules,
-            "responseContract": {
-                "kind": "plan",
-                "requestClassAllowed": ["configure", "repair", "guide"],
-                "mustUseOnlyAllowedActions": True,
-                "mustReturnStructuredPlan": True,
-            },
+            "notes": [
+                "Stay within the allowed action catalog.",
+                "Do not generate shell commands.",
+                "Do not generate arbitrary source code edits.",
+                "Use only the supported VS Code-native surfaces.",
+            ],
         }
 
         return PlannerPromptPackage(
             mode="plan",
             requestClass=classification.requestClass,
             messages=[
-                PromptMessage(role="system", content=system_content),
                 PromptMessage(
-                    role="user",
-                    content=self._pretty_json(user_payload),
+                    role="system",
+                    content=("You are the VS Code Control Agent planner. Return structured JSON only."),
                 ),
+                PromptMessage(role="user", content=self._pretty_json(user_payload)),
             ],
         )
 
     def _pretty_json(self, payload: dict) -> str:
-        """
-        Stable pretty JSON string for provider input.
-
-        This makes prompt snapshots easier to inspect in tests and logs.
-        """
         return json.dumps(payload, indent=2, sort_keys=True)
