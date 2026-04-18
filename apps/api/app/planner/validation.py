@@ -2,60 +2,108 @@ from __future__ import annotations
 
 import json
 from json import JSONDecodeError
-from typing import Any, Sequence
+from typing import Any
 
 from pydantic import ValidationError
 
+from app.planner.draft_schemas import (
+    DraftExecutionPlan,
+    validate_model_draft_execution_plan,
+    validate_model_explanation_response,
+)
+from app.planner.enrichment import PlanDraftEnricher
+from app.planner.policy import PlannerPolicy
 from app.planner.prompts import PlannerPromptPackage
 from app.planner.providers.types import ProviderGenerationResult
-from app.planner.schemas import ErrorPayload, PlanError, PlanResponse, validate_plan_response
+from app.planner.schemas import (
+    ErrorPayload,
+    ExplanationPayload,
+    PlanError,
+    PlanResponse,
+    WorkspaceSnapshot,
+    validate_plan_response,
+)
 
 
 class PlannerResponseValidator:
     """
-    Validate raw provider output against the shared public planner response contract.
+    Validate model-facing structured output, enrich draft plans into full shared
+    plans, then validate the final shared response contract.
     """
+
+    def __init__(self, enricher: PlanDraftEnricher | None = None) -> None:
+        self._enricher = enricher or PlanDraftEnricher()
 
     def validate(
         self,
         *,
         provider_result: ProviderGenerationResult,
         prompt_package: PlannerPromptPackage,
+        policy: PlannerPolicy,
+        workspace_snapshot: WorkspaceSnapshot,
     ) -> PlanResponse:
-        candidate_json = self._extract_json_candidate(provider_result.rawText)
+        candidate_payload = self._extract_payload(provider_result)
 
-        try:
-            parsed_payload = json.loads(candidate_json)
-        except JSONDecodeError as exc:
+        if candidate_payload is None:
             return self._invalid_payload(
                 provider_result=provider_result,
                 prompt_package=prompt_package,
                 reason="Provider output was not valid JSON.",
-                parse_error=str(exc),
             )
 
+        candidate_payload = self._normalize_model_payload(candidate_payload)
+
         try:
-            validated_response = validate_plan_response(parsed_payload)
+            if prompt_package.mode == "explanation":
+                model_response = validate_model_explanation_response(candidate_payload)
+
+                wrapped_explanation = ExplanationPayload(
+                    kind="explanation",
+                    data=model_response,
+                )
+
+                return validate_plan_response(wrapped_explanation.model_dump(mode="json"))
+
+            model_response = validate_model_draft_execution_plan(candidate_payload)
+
         except ValidationError as exc:
             return self._invalid_payload(
                 provider_result=provider_result,
                 prompt_package=prompt_package,
-                reason=("Provider output did not match the shared planner response schema."),
+                reason="Provider output did not match the model-facing response schema.",
                 validation_errors=exc.errors(),
             )
 
-        mode_mismatch_reason = self._get_mode_mismatch_reason(
-            prompt_mode=prompt_package.mode,
-            response_kind=validated_response.kind,
+        assert isinstance(model_response, DraftExecutionPlan)
+
+        enriched_plan = self._enricher.enrich(
+            draft=model_response,
+            policy=policy,
+            workspace_snapshot=workspace_snapshot,
         )
-        if mode_mismatch_reason is not None:
+
+        try:
+            return validate_plan_response(enriched_plan.model_dump(mode="json"))
+        except ValidationError as exc:
             return self._invalid_payload(
                 provider_result=provider_result,
                 prompt_package=prompt_package,
-                reason=mode_mismatch_reason,
+                reason="Enriched plan did not match the shared planner response schema.",
+                validation_errors=exc.errors(),
             )
 
-        return validated_response
+    def _extract_payload(self, provider_result: ProviderGenerationResult) -> dict[str, Any] | None:
+        if isinstance(provider_result.parsedJson, dict):
+            return provider_result.parsedJson
+
+        candidate_json = self._extract_json_candidate(provider_result.rawText)
+
+        try:
+            parsed = json.loads(candidate_json)
+        except JSONDecodeError:
+            return None
+
+        return parsed if isinstance(parsed, dict) else None
 
     def _extract_json_candidate(self, raw_text: str) -> str:
         text = raw_text.strip()
@@ -73,31 +121,13 @@ class PlannerResponseValidator:
 
         return text
 
-    def _get_mode_mismatch_reason(
-        self,
-        *,
-        prompt_mode: str,
-        response_kind: str,
-    ) -> str | None:
-        if response_kind == "error":
-            return None
-
-        if prompt_mode in {"explanation"} and response_kind != "explanation":
-            return "Provider returned a non-explanation payload for explanation mode."
-
-        if prompt_mode in {"plan", "retry"} and response_kind != "plan":
-            return "Provider returned a non-plan payload for plan/retry mode."
-
-        return None
-
     def _invalid_payload(
         self,
         *,
         provider_result: ProviderGenerationResult,
         prompt_package: PlannerPromptPackage,
         reason: str,
-        parse_error: str | None = None,
-        validation_errors: Sequence[Any] | None = None,
+        validation_errors: list[dict[str, Any]] | None = None,
     ) -> ErrorPayload:
         details: dict[str, Any] = {
             "provider": provider_result.providerName,
@@ -109,9 +139,6 @@ class PlannerResponseValidator:
             "reason": reason,
         }
 
-        if parse_error is not None:
-            details["parseError"] = parse_error
-
         if validation_errors is not None:
             details["validationErrors"] = validation_errors
 
@@ -119,7 +146,36 @@ class PlannerResponseValidator:
             kind="error",
             error=PlanError(
                 code="invalid_plan_payload",
-                message=("Provider output did not match the shared planner response contract."),
+                message="Provider output did not match the planner response contract.",
                 details=details,
             ),
         )
+
+    def _normalize_model_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """
+        Apply tiny mechanical normalization before model-facing validation.
+
+        This is intentionally narrow:
+        - remove known wrapper/type names from plan generation
+        - normalize kind casing only when present
+        - do not invent missing semantic fields
+        """
+        normalized = dict(payload)
+
+        kind = normalized.get("kind")
+        if isinstance(kind, str):
+            lowered = kind.strip().lower()
+
+            if lowered in {"plan", "explanation", "error"}:
+                normalized["kind"] = lowered
+                return normalized
+
+            # In plan/retry mode the model should not be generating transport
+            # wrapper kinds at all. Convert known plan-like aliases into the
+            # underlying draft plan object.
+            if lowered in {"executionplan", "draftexecutionplan"}:
+                data = normalized.get("data")
+                if isinstance(data, dict):
+                    return data
+
+        return normalized

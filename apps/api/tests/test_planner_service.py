@@ -1,6 +1,5 @@
 import json
 
-from app.planner.providers.mock import MockPlannerProvider
 from app.planner.providers.types import ProviderGenerationResult
 from app.planner.schemas import PlanRequest
 from app.planner.service import PlannerService
@@ -93,7 +92,7 @@ def build_request(text: str, hint: str | None = None) -> PlanRequest:
     return PlanRequest.model_validate(payload)
 
 
-class StaticInvalidPlanProvider:
+class StaticInvalidProvider:
     name = "static-invalid"
 
     def generate(self, payload, classification, policy, prompt_package):
@@ -113,68 +112,75 @@ class StaticInvalidPlanProvider:
         )
 
 
-class StaticValidPlanProvider:
-    name = "static-valid"
+class StaticValidExplanationProvider:
+    name = "static-valid-explanation"
 
     def generate(self, payload, classification, policy, prompt_package):
+        # Model-facing explanation object only.
         raw_response = {
-            "kind": "plan",
-            "data": {
-                "id": "plan-1",
-                "summary": "Enable format on save in this workspace.",
-                "explanation": "This will enable editor.formatOnSave for the workspace.",
-                "requestClass": "configure",
-                "approval": {
-                    "required": False,
-                    "reason": "Workspace-only settings update.",
-                    "riskLevel": "low",
-                },
-                "actions": [
-                    {
-                        "id": "action-1",
-                        "actionType": "updateWorkspaceSettings",
-                        "scope": "workspace",
-                        "target": "editor.formatOnSave",
-                        "parameters": {
-                            "key": "editor.formatOnSave",
-                            "value": True,
-                        },
-                        "riskLevel": "low",
-                        "requiresApproval": False,
-                        "preview": {
-                            "summary": "Enable format on save.",
-                            "targetLabel": "workspace setting editor.formatOnSave",
-                            "before": False,
-                            "after": True,
-                        },
-                        "executionMethod": "vscode.workspace.getConfiguration().update",
-                        "rollbackMethod": "restorePreviousValue",
-                    }
-                ],
-            },
+            "id": "explain-1",
+            "requestClass": "explain",
+            "title": "Current VS Code setup overview",
+            "explanation": "Your workspace contains a .vscode/settings.json file and relevant formatter signals.",
+            "suggestedNextSteps": [
+                "Review workspace settings.",
+                "Confirm the formatter extension is active.",
+            ],
         }
 
         return ProviderGenerationResult(
             rawText=json.dumps(raw_response),
+            parsedJson=raw_response,
             providerName=self.name,
             modelName="fake-model",
         )
 
 
-def test_planner_service_accepts_validated_mock_error_response() -> None:
-    provider = MockPlannerProvider()
+class StaticValidDraftPlanProvider:
+    name = "static-valid-plan"
+
+    def generate(self, payload, classification, policy, prompt_package):
+        # Model-facing draft plan object only.
+        raw_response = {
+            "id": "plan-1",
+            "summary": "Enable format on save in this workspace.",
+            "explanation": "This will enable editor.formatOnSave for the workspace.",
+            "requestClass": "configure",
+            "actions": [
+                {
+                    "id": "action-1",
+                    "actionType": "updateWorkspaceSettings",
+                    "scope": "workspace",
+                    "target": "editor.formatOnSave",
+                    "parameters": {
+                        "value": True,
+                    },
+                    "riskLevel": "low",
+                }
+            ],
+        }
+
+        return ProviderGenerationResult(
+            rawText=json.dumps(raw_response),
+            parsedJson=raw_response,
+            providerName=self.name,
+            modelName="fake-model",
+        )
+
+
+def test_planner_service_returns_real_explanation_when_provider_output_is_valid() -> None:
+    provider = StaticValidExplanationProvider()
     service = PlannerService(provider=provider)
 
     response = service.generate(build_request("Explain my current VS Code setup", hint="explain"))
 
-    assert response.kind == "error"
-    assert response.error.code == "not_implemented"
-    assert response.error.details is not None
-    assert response.error.details["provider"] == "mock"
+    assert response.kind == "explanation"
+    assert response.data.requestClass == "explain"
+    assert response.data.title == "Current VS Code setup overview"
 
 
 def test_planner_service_returns_invalid_plan_payload_for_wrong_shape_output() -> None:
-    provider = StaticInvalidPlanProvider()
+    provider = StaticInvalidProvider()
     service = PlannerService(provider=provider)
 
     response = service.generate(build_request("Enable format on save for this workspace", hint="configure"))
@@ -186,7 +192,7 @@ def test_planner_service_returns_invalid_plan_payload_for_wrong_shape_output() -
 
 
 def test_planner_service_returns_real_plan_when_provider_output_is_valid() -> None:
-    provider = StaticValidPlanProvider()
+    provider = StaticValidDraftPlanProvider()
     service = PlannerService(provider=provider)
 
     response = service.generate(build_request("Enable format on save for this workspace", hint="configure"))
@@ -194,3 +200,4 @@ def test_planner_service_returns_real_plan_when_provider_output_is_valid() -> No
     assert response.kind == "plan"
     assert response.data.requestClass == "configure"
     assert response.data.actions[0].actionType == "updateWorkspaceSettings"
+    assert response.data.actions[0].requiresApproval is False

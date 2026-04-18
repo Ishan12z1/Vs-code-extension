@@ -95,65 +95,49 @@ def build_request(text: str, hint: str | None = None) -> PlanRequest:
     return PlanRequest.model_validate(payload)
 
 
-def build_prompt_package(payload: PlanRequest):
+def build_context(payload: PlanRequest):
     classifier = RequestClassifier()
     policy_builder = PlannerPolicyBuilder()
     prompt_builder = PlannerPromptBuilder()
 
     classification = classifier.classify(payload)
     policy = policy_builder.build(classification.requestClass)
-
-    return prompt_builder.build(
+    prompt_package = prompt_builder.build(
         payload=payload,
         classification=classification,
         policy=policy,
     )
+    return classification, policy, prompt_package
 
 
-def test_validator_accepts_valid_plan_response_payload() -> None:
+def test_validator_accepts_valid_draft_plan_and_returns_enriched_shared_plan() -> None:
     validator = PlannerResponseValidator()
     payload = build_request("Enable format on save for this workspace", "configure")
-    prompt_package = build_prompt_package(payload)
+    _, policy, prompt_package = build_context(payload)
 
+    # Draft object only. No top-level kind/data wrapper.
     raw_response = {
-        "kind": "plan",
-        "data": {
-            "id": "plan-1",
-            "summary": "Enable format on save in this workspace.",
-            "explanation": "This will enable editor.formatOnSave for the workspace.",
-            "requestClass": "configure",
-            "approval": {
-                "required": False,
-                "reason": "Workspace-only settings update.",
+        "id": "plan-1",
+        "summary": "Enable format on save in this workspace.",
+        "explanation": "This will enable editor.formatOnSave for the workspace.",
+        "requestClass": "configure",
+        "actions": [
+            {
+                "id": "action-1",
+                "actionType": "updateWorkspaceSettings",
+                "scope": "workspace",
+                "target": "editor.formatOnSave",
+                "parameters": {
+                    "value": True,
+                },
                 "riskLevel": "low",
-            },
-            "actions": [
-                {
-                    "id": "action-1",
-                    "actionType": "updateWorkspaceSettings",
-                    "scope": "workspace",
-                    "target": "editor.formatOnSave",
-                    "parameters": {
-                        "key": "editor.formatOnSave",
-                        "value": True,
-                    },
-                    "riskLevel": "low",
-                    "requiresApproval": False,
-                    "preview": {
-                        "summary": "Enable format on save.",
-                        "targetLabel": "workspace setting editor.formatOnSave",
-                        "before": False,
-                        "after": True,
-                    },
-                    "executionMethod": "vscode.workspace.getConfiguration().update",
-                    "rollbackMethod": "restorePreviousValue",
-                }
-            ],
-        },
+            }
+        ],
     }
 
     provider_result = ProviderGenerationResult(
         rawText=json.dumps(raw_response),
+        parsedJson=raw_response,
         providerName="test-provider",
         modelName="test-model",
     )
@@ -161,17 +145,22 @@ def test_validator_accepts_valid_plan_response_payload() -> None:
     result = validator.validate(
         provider_result=provider_result,
         prompt_package=prompt_package,
+        policy=policy,
+        workspace_snapshot=payload.workspaceSnapshot,
     )
 
     assert result.kind == "plan"
     assert result.data.requestClass == "configure"
     assert result.data.actions[0].actionType == "updateWorkspaceSettings"
+    assert result.data.actions[0].requiresApproval is False
+    assert result.data.actions[0].executionMethod == "vscodeConfigurationUpdate:workspace"
+    assert result.data.actions[0].rollbackMethod == "restorePreviousSettingValue:workspace"
 
 
 def test_validator_rejects_current_gemini_style_array_output() -> None:
     validator = PlannerResponseValidator()
     payload = build_request("Enable format on save for this workspace", "configure")
-    prompt_package = build_prompt_package(payload)
+    _, policy, prompt_package = build_context(payload)
 
     provider_result = ProviderGenerationResult(
         rawText="""```json
@@ -196,6 +185,8 @@ def test_validator_rejects_current_gemini_style_array_output() -> None:
     result = validator.validate(
         provider_result=provider_result,
         prompt_package=prompt_package,
+        policy=policy,
+        workspace_snapshot=payload.workspaceSnapshot,
     )
 
     assert result.kind == "error"
