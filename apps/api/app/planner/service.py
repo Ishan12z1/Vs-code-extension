@@ -9,20 +9,6 @@ from app.planner.validation import PlannerResponseValidator
 
 
 class PlannerService:
-    """
-    Thin backend orchestration layer for planner calls.
-
-    Step 6.2 added classification.
-    Step 6.3 added bounded policy.
-    Step 6.4 added prompt contracts.
-    Step 6.5 added provider adapter invocation.
-    Step 6.6 adds structured output validation.
-
-    Still intentionally missing:
-    - repair / retry (Step 6.7)
-    - persistence (Step 6.8)
-    """
-
     def __init__(
         self,
         provider: PlannerProvider,
@@ -38,11 +24,6 @@ class PlannerService:
         self._response_validator = response_validator or PlannerResponseValidator()
 
     def generate(self, payload: PlanRequest) -> PlanResponse:
-        """
-        Resolve request class, reject unsupported asks early, build policy,
-        build prompt package, invoke the provider, then validate raw provider
-        output against the shared public response contract.
-        """
         classification = self._classifier.classify(payload)
 
         if not classification.isSupported:
@@ -91,7 +72,51 @@ class PlannerService:
                 ),
             )
 
-        return self._response_validator.validate(
+        first_result = self._response_validator.validate(
             provider_result=provider_result,
             prompt_package=prompt_package,
+            policy=policy,
+            workspace_snapshot=payload.workspaceSnapshot,
         )
+
+        if first_result.kind != "error" or first_result.error.code != "invalid_plan_payload":
+            return first_result
+
+        retry_prompt = self._prompt_builder.build_retry_for_invalid_output(
+            payload=payload,
+            classification=classification,
+            policy=policy,
+            previous_prompt=prompt_package,
+            previous_provider_result=provider_result,
+            validation_reason=first_result.error.details.get("reason", "Invalid planner payload.")
+            if first_result.error.details
+            else "Invalid planner payload.",
+        )
+
+        try:
+            retry_provider_result = self._provider.generate(
+                payload=payload,
+                classification=classification,
+                policy=policy,
+                prompt_package=retry_prompt,
+            )
+        except Exception as exc:
+            if first_result.error.details is not None:
+                first_result.error.details["retryAttempted"] = True
+                first_result.error.details["retryFailed"] = True
+                first_result.error.details["retryErrorType"] = type(exc).__name__
+                first_result.error.details["retryErrorMessage"] = str(exc)
+            return first_result
+
+        retry_result = self._response_validator.validate(
+            provider_result=retry_provider_result,
+            prompt_package=retry_prompt,
+            policy=policy,
+            workspace_snapshot=payload.workspaceSnapshot,
+        )
+
+        if retry_result.kind == "error" and retry_result.error.details is not None:
+            retry_result.error.details["retryAttempted"] = True
+            retry_result.error.details["initialProviderRawTextPreview"] = provider_result.rawText[:1000]
+
+        return retry_result
