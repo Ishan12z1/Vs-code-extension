@@ -109,7 +109,9 @@ def test_prompt_builder_uses_explanation_mode_for_explain_request() -> None:
     assert prompt_package.mode == "explanation"
     assert prompt_package.requestClass == "explain"
     assert len(prompt_package.messages) == 2
-    assert "mustNotGenerateActions" in prompt_package.messages[1].content
+    assert "structured JSON only" in prompt_package.messages[0].content
+    assert '"task": "Explain the user' in prompt_package.messages[1].content
+    assert '"policyRules"' in prompt_package.messages[1].content
 
 
 def test_prompt_builder_uses_plan_mode_for_configure_request() -> None:
@@ -133,5 +135,6 @@ def test_prompt_builder_uses_plan_mode_for_configure_request() -> None:
     assert prompt_package.mode == "plan"
     assert prompt_package.requestClass == "configure"
     assert len(prompt_package.messages) == 2
-    assert "mustUseOnlyAllowedActions" in prompt_package.messages[1].content
-    assert "updateWorkspaceSettings" in prompt_package.messages[1].content
+    assert "structured JSON only" in prompt_package.messages[0].content
+    assert '"allowedActions"' in prompt_package.messages[1].content
+    assert '"updateWorkspaceSettings"' in prompt_package.messages[1].content

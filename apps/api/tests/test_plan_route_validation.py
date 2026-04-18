@@ -101,22 +101,38 @@ def build_valid_plan_request() -> dict:
     }
 
 
-def test_plan_route_accepts_valid_payload_and_returns_structured_error() -> None:
+def test_plan_route_accepts_valid_payload_and_returns_structured_response() -> None:
     """
     Valid payload should pass request-boundary validation.
 
-    The route still returns not_implemented because planner logic is intentionally
-    deferred to later steps, but the request path itself should be correct.
+    This test is about the real API boundary, not about forcing one older
+    placeholder planner behavior. Once planner wiring exists, a valid request may
+    return:
+    - explanation
+    - plan
+    - structured error
     """
     response = client.post("/plan", json=build_valid_plan_request())
 
     assert response.status_code == 200
 
     body = response.json()
-    assert body["kind"] == "error"
-    assert body["error"]["code"] == "not_implemented"
-    assert "Planning is not implemented yet" in body["error"]["message"]
-    assert body["error"]["details"]["requestId"] == "req-1"
+    assert body["kind"] in {"plan", "explanation", "error"}
+
+    if body["kind"] == "plan":
+        assert "data" in body
+        assert body["data"]["requestClass"] in {"configure", "repair", "guide"}
+
+    elif body["kind"] == "explanation":
+        assert "data" in body
+        assert body["data"]["requestClass"] in {"explain", "inspect", "guide"}
+        assert isinstance(body["data"]["title"], str)
+        assert isinstance(body["data"]["explanation"], str)
+
+    else:
+        assert "error" in body
+        assert isinstance(body["error"]["code"], str)
+        assert isinstance(body["error"]["message"], str)
 
 
 def test_plan_route_rejects_old_created_at_field_at_request_boundary() -> None:
