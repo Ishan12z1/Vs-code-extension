@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import { collectWorkspaceExplanation } from "../explain/collectWorkspaceExplanation";
+import type { RequestClass } from "@control-agent/contracts";
+import { requestPlannerResponse } from "../planner/requestPlannerResponse";
 import type { ExtensionRuntime } from "../state/runtime";
 import {
   DEFAULT_APPROVAL_PLACEHOLDER,
@@ -11,18 +12,9 @@ import type {
   SidebarHostToWebviewMessage,
   SidebarWebviewToHostMessage,
 } from "./sidebarProtocol";
-import {
-  classifyShellPrompt,
-  isExplainLikePrompt,
-} from "./classifyShellPrompt";
+import { classifyShellPrompt } from "./classifyShellPrompt";
 import { renderSidebarShellHtml } from "./renderSidebarShellHtml";
 
-/**
- * Real sidebar provider for the extension shell.
- *
- * E6 keeps the sidebar as the one real explain surface and centralizes
- * the explain pipeline through collectWorkspaceExplanation().
- */
 export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | undefined;
   private state: SidebarHostState;
@@ -39,9 +31,6 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
     return this.state;
   }
 
-  /**
-   * Reads the current extension configuration that should be visible in the shell.
-   */
   private readShellConfig(): SidebarShellConfig {
     const config = vscode.workspace.getConfiguration("controlAgent");
 
@@ -51,9 +40,6 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
     };
   }
 
-  /**
-   * Central state updater.
-   */
   public async updateState(patch: Partial<SidebarHostState>): Promise<void> {
     this.state = {
       ...this.state,
@@ -78,27 +64,14 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  /**
-   * Appends one activity item and keeps the list bounded.
-   */
   private buildNextActivityItems(item: string): string[] {
     return [...this.state.activityItems, item].slice(-8);
   }
 
-  /**
-   * Appends one log line and keeps the list bounded.
-   */
   private buildNextLogs(item: string): string[] {
     return [...this.state.logs, item].slice(-25);
   }
 
-  /**
-   * B5 config refresh hook.
-   *
-   * This is used both:
-   * - from the sidebar UI refresh action
-   * - from extension-side configuration change events
-   */
   public async refreshShellConfiguration(
     reason = "shell configuration refreshed"
   ): Promise<void> {
@@ -122,103 +95,16 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  /**
-   * Final read-only explain flow.
-   *
-   * E6 makes this the one canonical sidebar explain path.
-   * It also clears stale result/approval state before showing explanation output.
-   */
   public async runExplainWorkspace(
     trigger = "explain workspace action"
   ): Promise<void> {
-    this.runtime.output.appendLine("[sidebar] explain workspace flow started");
-
-    await this.updateState({
-      mode: "loading",
-      screen: "home",
-
-      // Clear stale explain/result/error state before rebuilding.
-      explanation: null,
-      resultTitle: null,
-      resultBody: null,
-      approvalPlaceholder: DEFAULT_APPROVAL_PLACEHOLDER,
-      errorMessage: null,
-
-      statusMessage: "Collecting workspace state...",
-      lastEvent: trigger,
-      activityItems: this.buildNextActivityItems(
-        "Collecting workspace state..."
-      ),
-      logs: this.buildNextLogs(`[sidebar] ${trigger}`),
-    });
-
-    try {
-      const { explanation } = await collectWorkspaceExplanation(this.runtime);
-
-      await this.updateState({
-        mode: "showing-result",
-        screen: "explanation",
-
-        // Explanation is now the active surface.
-        explanation,
-        resultTitle: null,
-        resultBody: null,
-        approvalPlaceholder: DEFAULT_APPROVAL_PLACEHOLDER,
-        errorMessage: null,
-
-        statusMessage: "Workspace explanation ready.",
-        lastEvent: "explain workspace completed",
-        activityItems: this.buildNextActivityItems(
-          "Built read-only workspace explanation."
-        ),
-        logs: this.buildNextLogs(
-          "[sidebar] workspace explanation rendered in sidebar"
-        ),
-      });
-
-      await this.postMessage({
-        type: "sidebar/ack",
-        payload: {
-          message: "Workspace explanation rendered in the sidebar.",
-        },
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Unknown error while building workspace explanation.";
-
-      await this.updateState({
-        mode: "idle",
-        screen: "home",
-
-        // Keep explain-mode reset behavior consistent even on failure.
-        explanation: null,
-        resultTitle: null,
-        resultBody: null,
-        approvalPlaceholder: DEFAULT_APPROVAL_PLACEHOLDER,
-        errorMessage: message,
-
-        statusMessage: "Workspace explanation failed.",
-        lastEvent: "explain workspace failed",
-        activityItems: this.buildNextActivityItems(
-          "Workspace explanation failed."
-        ),
-        logs: this.buildNextLogs(`[sidebar] explanation failed: ${message}`),
-      });
-
-      await this.postMessage({
-        type: "sidebar/ack",
-        payload: {
-          message: `Workspace explanation failed: ${message}`,
-        },
-      });
-    }
+    await this.runPlannerPrompt(
+      "Explain my current VS Code setup",
+      trigger,
+      "explain"
+    );
   }
 
-  /**
-   * Shell submit path.
-   */
   public async submitPrompt(prompt: string): Promise<void> {
     const trimmedPrompt = prompt.trim();
 
@@ -235,74 +121,191 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    await this.updateState({
-      promptDraft: trimmedPrompt,
-      mode: "loading",
-      statusMessage: "Processing prompt in sidebar shell...",
-      lastEvent: "prompt submitted",
-      errorMessage: null,
-      activityItems: this.buildNextActivityItems(
-        `Submitted prompt: ${trimmedPrompt}`
-      ),
-      logs: this.buildNextLogs(`[sidebar] prompt submitted: ${trimmedPrompt}`),
-    });
-
-    if (isExplainLikePrompt(trimmedPrompt)) {
-      await this.runExplainWorkspace(`prompt submit -> ${trimmedPrompt}`);
-      return;
-    }
-
     const classification = classifyShellPrompt(trimmedPrompt);
-    const approvalPlaceholder =
-      classification.route === "configure" || classification.route === "repair"
-        ? "This looks like a change-oriented request. Preview/apply/approval are deferred to later steps, so no local changes were made."
-        : DEFAULT_APPROVAL_PLACEHOLDER;
+    const requestClassHint = this.toRequestClassHint(classification.route);
 
-    await this.updateState({
-      mode: "showing-result",
-      screen: "result",
-      explanation: null,
-      resultTitle: `${classification.label} request captured`,
-      resultBody: [
-        `Prompt: "${trimmedPrompt}"`,
-        "",
-        `Detected route: ${classification.label}`,
-        "Shell action: captured locally in the sidebar state model",
-        `Next step: ${classification.nextStep}`,
-        "",
-        "Planner, preview, apply, and approval are intentionally deferred to later steps.",
-        "No local changes were made.",
-      ].join("\n"),
-      approvalPlaceholder,
-      statusMessage: `${classification.label} request captured in sidebar shell.`,
-      lastEvent: "request captured in shell",
-      errorMessage: null,
-      activityItems: this.buildNextActivityItems(
-        `Captured ${classification.label.toLowerCase()} request in shell.`
-      ),
-      logs: this.buildNextLogs(
-        `[sidebar] captured non-explain prompt (${classification.route})`
-      ),
-    });
-
-    await this.postMessage({
-      type: "sidebar/ack",
-      payload: {
-        message: "Prompt captured in sidebar shell.",
-      },
-    });
+    await this.runPlannerPrompt(
+      trimmedPrompt,
+      "prompt submitted",
+      requestClassHint
+    );
   }
 
-  /**
-   * Returns the sidebar to its base shell state.
-   */
+  private toRequestClassHint(
+    route: ReturnType<typeof classifyShellPrompt>["route"]
+  ): RequestClass | undefined {
+    switch (route) {
+      case "explain":
+        return "explain";
+      case "configure":
+        return "configure";
+      case "repair":
+        return "repair";
+      case "guide":
+        return "guide";
+      default:
+        return undefined;
+    }
+  }
+
+  private async runPlannerPrompt(
+    prompt: string,
+    trigger: string,
+    requestClassHint?: RequestClass
+  ): Promise<void> {
+    this.runtime.output.appendLine(`[sidebar] planner flow started: ${prompt}`);
+
+    await this.updateState({
+      mode: "loading",
+      screen: "home",
+      promptDraft: prompt,
+      plannerExplanation: null,
+      plannerPlan: null,
+      resultTitle: null,
+      resultBody: null,
+      approvalPlaceholder: DEFAULT_APPROVAL_PLACEHOLDER,
+      errorMessage: null,
+      statusMessage: "Collecting workspace state and calling planner...",
+      lastEvent: trigger,
+      activityItems: this.buildNextActivityItems(
+        `Submitting planner request: ${prompt}`
+      ),
+      logs: this.buildNextLogs(
+        `[sidebar] planner request submitted: ${prompt}`
+      ),
+    });
+
+    try {
+      const response = await requestPlannerResponse({
+        runtime: this.runtime,
+        backendUrl: this.state.config.backendUrl,
+        prompt,
+        requestClassHint,
+      });
+
+      if (response.kind === "plan") {
+        await this.updateState({
+          mode: "showing-result",
+          screen: "result",
+          plannerExplanation: null,
+          plannerPlan: response.data,
+          resultTitle: null,
+          resultBody: null,
+          approvalPlaceholder: response.data.approval.required
+            ? `Approval required: ${response.data.approval.reason}`
+            : `No approval required: ${response.data.approval.reason}`,
+          errorMessage: null,
+          statusMessage: "Planner returned a structured plan.",
+          lastEvent: "plan rendered",
+          activityItems: this.buildNextActivityItems(
+            `Rendered plan with ${response.data.actions.length} action(s).`
+          ),
+          logs: this.buildNextLogs("[sidebar] structured plan rendered"),
+        });
+
+        await this.postMessage({
+          type: "sidebar/ack",
+          payload: {
+            message: "Structured plan rendered in the sidebar.",
+          },
+        });
+
+        return;
+      }
+
+      if (response.kind === "explanation") {
+        await this.updateState({
+          mode: "showing-result",
+          screen: "explanation",
+          plannerExplanation: response.data,
+          plannerPlan: null,
+          resultTitle: null,
+          resultBody: null,
+          approvalPlaceholder: DEFAULT_APPROVAL_PLACEHOLDER,
+          errorMessage: null,
+          statusMessage: "Planner returned an explanation.",
+          lastEvent: "explanation rendered",
+          activityItems: this.buildNextActivityItems(
+            "Rendered planner explanation."
+          ),
+          logs: this.buildNextLogs("[sidebar] structured explanation rendered"),
+        });
+
+        await this.postMessage({
+          type: "sidebar/ack",
+          payload: {
+            message: "Structured explanation rendered in the sidebar.",
+          },
+        });
+
+        return;
+      }
+
+      await this.updateState({
+        mode: "idle",
+        screen: "home",
+        plannerExplanation: null,
+        plannerPlan: null,
+        resultTitle: "Planner returned an error",
+        resultBody: response.error.message,
+        approvalPlaceholder: DEFAULT_APPROVAL_PLACEHOLDER,
+        errorMessage: response.error.message,
+        statusMessage: "Planner request failed.",
+        lastEvent: "planner error",
+        activityItems: this.buildNextActivityItems(
+          "Planner returned an error."
+        ),
+        logs: this.buildNextLogs(
+          `[sidebar] planner error: ${response.error.code}`
+        ),
+      });
+
+      await this.postMessage({
+        type: "sidebar/ack",
+        payload: {
+          message: `Planner error: ${response.error.message}`,
+        },
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unknown planner error while contacting the backend.";
+
+      await this.updateState({
+        mode: "idle",
+        screen: "home",
+        plannerExplanation: null,
+        plannerPlan: null,
+        resultTitle: null,
+        resultBody: null,
+        approvalPlaceholder: DEFAULT_APPROVAL_PLACEHOLDER,
+        errorMessage: message,
+        statusMessage: "Planner request failed.",
+        lastEvent: "planner request failed",
+        activityItems: this.buildNextActivityItems("Planner request failed."),
+        logs: this.buildNextLogs(
+          `[sidebar] planner request failed: ${message}`
+        ),
+      });
+
+      await this.postMessage({
+        type: "sidebar/ack",
+        payload: {
+          message: `Planner request failed: ${message}`,
+        },
+      });
+    }
+  }
+
   public async showHome(): Promise<void> {
     await this.updateState({
       mode: "idle",
       screen: "home",
       statusMessage: "Showing sidebar home.",
       lastEvent: "show home",
-      explanation: null,
+      plannerExplanation: null,
+      plannerPlan: null,
       resultTitle: null,
       resultBody: null,
       approvalPlaceholder: DEFAULT_APPROVAL_PLACEHOLDER,
@@ -334,8 +337,7 @@ export class ControlAgentSidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = renderSidebarShellHtml({
       title: "Control Agent",
-      subtitle:
-        "VS Code-native assistant shell. Sidebar focus, visible config, and verification are now polished.",
+      subtitle: "Real planner result rendering is now wired into the sidebar.",
       initialState: this.state,
     });
 

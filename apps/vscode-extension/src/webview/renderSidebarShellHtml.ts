@@ -20,13 +20,7 @@ function serializeForInlineScript(value: unknown): string {
 }
 
 /**
- * Renders the B5 sidebar shell.
- *
- * B5 keeps the B4 shell, but adds:
- * - visible config card
- * - refresh shell action
- * - host acknowledgement area
- * - theme-safe cleanup
+ * Renders the sidebar shell with real planner result rendering.
  */
 export function renderSidebarShellHtml(options: {
   title: string;
@@ -298,6 +292,30 @@ export function renderSidebarShellHtml(options: {
         <div class="section-grid" id="explanationSections"></div>
       </section>
 
+      <section class="card hidden" id="planCard">
+        <h2 id="planTitle">Plan</h2>
+        <p id="planExplanation" style="margin-bottom: 10px;"></p>
+
+        <div class="status-grid" style="margin-bottom: 12px;">
+          <div class="status-row">
+            <div class="status-label">Request class</div>
+            <div class="status-value" id="planRequestClassValue">Unknown</div>
+          </div>
+
+          <div class="status-row">
+            <div class="status-label">Approval</div>
+            <div class="status-value" id="planApprovalValue">Unknown</div>
+          </div>
+
+          <div class="status-row">
+            <div class="status-label">Risk level</div>
+            <div class="status-value" id="planRiskValue">Unknown</div>
+          </div>
+        </div>
+
+        <div class="section-grid" id="planActions"></div>
+      </section>
+
       <section class="card">
         <h2>Approval / apply</h2>
         <p id="approvalPlaceholder"></p>
@@ -355,6 +373,14 @@ export function renderSidebarShellHtml(options: {
       const explanationSubtitle = document.getElementById("explanationSubtitle");
       const explanationSections = document.getElementById("explanationSections");
 
+      const planCard = document.getElementById("planCard");
+      const planTitle = document.getElementById("planTitle");
+      const planExplanation = document.getElementById("planExplanation");
+      const planRequestClassValue = document.getElementById("planRequestClassValue");
+      const planApprovalValue = document.getElementById("planApprovalValue");
+      const planRiskValue = document.getElementById("planRiskValue");
+      const planActions = document.getElementById("planActions");
+
       const approvalPlaceholder = document.getElementById("approvalPlaceholder");
       const errorCard = document.getElementById("errorCard");
       const errorValue = document.getElementById("errorValue");
@@ -368,29 +394,6 @@ export function renderSidebarShellHtml(options: {
           .replaceAll(">", "&gt;")
           .replaceAll('"', "&quot;")
           .replaceAll("'", "&#39;");
-      }
-
-      function renderSummarySection(section) {
-        const itemsHtml =
-          section.items.length > 0
-            ? section.items
-                .map(
-                  (item) => \`
-                    <div class="summary-item">
-                      <div class="summary-label">\${escapeHtml(item.label)}</div>
-                      <div class="summary-value">\${escapeHtml(item.value)}</div>
-                    </div>
-                  \`,
-                )
-                .join("")
-            : \`<p class="muted">\${escapeHtml(section.emptyMessage ?? "No data available.")}</p>\`;
-
-        return \`
-          <div class="summary-section">
-            <h3>\${escapeHtml(section.title)}</h3>
-            \${itemsHtml}
-          </div>
-        \`;
       }
 
       function renderActivity(items) {
@@ -419,7 +422,7 @@ export function renderSidebarShellHtml(options: {
         resultBody.textContent = state.resultBody ?? "";
       }
 
-      function renderExplanation(explanation) {
+      function renderPlannerExplanation(explanation) {
         if (!explanation) {
           explanationCard.classList.add("hidden");
           explanationTitle.textContent = "Current VS Code setup";
@@ -430,9 +433,95 @@ export function renderSidebarShellHtml(options: {
 
         explanationCard.classList.remove("hidden");
         explanationTitle.textContent = explanation.title;
-        explanationSubtitle.textContent = explanation.subtitle;
-        explanationSections.innerHTML = explanation.sections
-          .map(renderSummarySection)
+        explanationSubtitle.textContent = explanation.explanation;
+
+        explanationSections.innerHTML =
+          explanation.suggestedNextSteps.length > 0
+            ? \`
+              <div class="summary-section">
+                <h3>Suggested next steps</h3>
+                <ul class="list">
+                  \${explanation.suggestedNextSteps
+                    .map((item) => \`<li>\${escapeHtml(item)}</li>\`)
+                    .join("")}
+                </ul>
+              </div>
+            \`
+            : '<p class="muted">No suggested next steps.</p>';
+      }
+
+      function renderPlan(plan) {
+        if (!plan) {
+          planCard.classList.add("hidden");
+          planTitle.textContent = "Plan";
+          planExplanation.textContent = "";
+          planRequestClassValue.textContent = "Unknown";
+          planApprovalValue.textContent = "Unknown";
+          planRiskValue.textContent = "Unknown";
+          planActions.innerHTML = "";
+          return;
+        }
+
+        planCard.classList.remove("hidden");
+        planTitle.textContent = plan.summary;
+        planExplanation.textContent = plan.explanation;
+        planRequestClassValue.textContent = plan.requestClass;
+        planApprovalValue.textContent = plan.approval.required
+          ? \`Required — \${plan.approval.reason}\`
+          : \`Not required — \${plan.approval.reason}\`;
+        planRiskValue.textContent = plan.approval.riskLevel;
+
+        planActions.innerHTML = plan.actions
+          .map(
+            (action) => \`
+              <div class="summary-section">
+                <h3>\${escapeHtml(action.preview.summary)}</h3>
+
+                <div class="summary-item">
+                  <div class="summary-label">Action type</div>
+                  <div class="summary-value">\${escapeHtml(action.actionType)}</div>
+                </div>
+
+                <div class="summary-item">
+                  <div class="summary-label">Scope</div>
+                  <div class="summary-value">\${escapeHtml(action.scope)}</div>
+                </div>
+
+                <div class="summary-item">
+                  <div class="summary-label">Target</div>
+                  <div class="summary-value">\${escapeHtml(action.target)}</div>
+                </div>
+
+                <div class="summary-item">
+                  <div class="summary-label">Before</div>
+                  <div class="summary-value">\${escapeHtml(
+                    JSON.stringify(action.preview.before ?? null, null, 2)
+                  )}</div>
+                </div>
+
+                <div class="summary-item">
+                  <div class="summary-label">After</div>
+                  <div class="summary-value">\${escapeHtml(
+                    JSON.stringify(action.preview.after ?? null, null, 2)
+                  )}</div>
+                </div>
+
+                <div class="summary-item">
+                  <div class="summary-label">Execution method</div>
+                  <div class="summary-value">\${escapeHtml(
+                    action.executionMethod
+                  )}</div>
+                </div>
+
+                <div class="summary-item">
+                  <div class="summary-label">Rollback method</div>
+                  <div class="summary-value">\${escapeHtml(
+                    action.rollbackMethod
+                  )}</div>
+                </div>
+              </div>
+            \`
+          )
           .join("");
       }
 
@@ -480,7 +569,8 @@ export function renderSidebarShellHtml(options: {
 
         renderActivity(state.activityItems);
         renderResult(state);
-        renderExplanation(state.explanation);
+        renderPlannerExplanation(state.plannerExplanation);
+        renderPlan(state.plannerPlan);
         renderError(state.errorMessage);
         renderLogs(state.logs);
       }
