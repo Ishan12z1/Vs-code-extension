@@ -12,7 +12,11 @@ from app.planner.service import PlannerService
 router = APIRouter(prefix="/plan", tags=["plan"])
 
 
-@router.post("", response_model=PlanResponse)
+@router.post(
+    "",
+    response_model=PlanResponse,
+    response_model_exclude_none=True,
+)
 def create_plan(
     payload: PlanRequest,
     session: Session = Depends(get_db_session),
