@@ -1,33 +1,60 @@
-from fastapi import APIRouter
+from __future__ import annotations
 
-from app.planner.providers.factory import build_planner_provider
-from app.planner.schemas import PlanRequest, PlanResponse
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.db.session import get_db_session
+from app.dependencies.planner import get_planner_service
+from app.planner.persistence import persist_planner_run
+from app.planner.schemas import ErrorPayload, PlanError, PlanRequest, PlanResponse
 from app.planner.service import PlannerService
 
 router = APIRouter(prefix="/plan", tags=["plan"])
 
-# Step 6.1:
-# Build one planner service backed by the configured provider.
-# Right now that provider is still the mock placeholder provider.
-planner_service = PlannerService(provider=build_planner_provider())
-
 
 @router.post("", response_model=PlanResponse)
-def create_plan(payload: PlanRequest) -> PlanResponse:
+def create_plan(
+    payload: PlanRequest,
+    session: Session = Depends(get_db_session),
+    planner_service: PlannerService = Depends(get_planner_service),
+) -> PlanResponse:
     """
-    Planner entry route.
+    Real planner entry route.
 
     What this route does now:
-    - FastAPI validates the shared PlanRequest at the request boundary
-    - the route delegates planner work to PlannerService
-    - PlannerService delegates to a PlannerProvider
-    - the current provider is still a structured placeholder
+    - FastAPI validates PlanRequest at the request boundary
+    - delegates planner execution to PlannerService
+    - persists the resulting run/plan/action artifacts
+    - returns the final public PlanResponse
 
-    What this route intentionally does NOT do yet:
-    - request classification
-    - real planning
-    - prompt orchestration
-    - provider SDK wiring
-    - persistence
+    Why this is the right shape:
+    - route stays thin
+    - planner logic stays in planner service
+    - DB writes stay in persistence code
+    - dependencies are overrideable in tests
     """
-    return planner_service.generate(payload)
+    record = planner_service.generate_record(payload)
+
+    try:
+        persist_planner_run(
+            session=session,
+            payload=payload,
+            record=record,
+        )
+    except Exception as exc:
+        session.rollback()
+
+        return ErrorPayload(
+            kind="error",
+            error=PlanError(
+                code="internal_error",
+                message="Planner response could not be persisted.",
+                details={
+                    "requestId": payload.userRequest.id,
+                    "errorType": type(exc).__name__,
+                    "errorMessage": str(exc),
+                },
+            ),
+        )
+
+    return record.response
