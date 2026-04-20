@@ -1,3 +1,10 @@
+"""
+Legacy backend path.
+
+This module is not part of the primary V1 local-first execution path.
+Keep for migration/reference only unless explicitly working on legacy code.
+"""
+
 from fastapi import FastAPI
 
 from app.config import settings
