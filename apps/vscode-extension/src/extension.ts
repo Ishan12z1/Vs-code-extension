@@ -1,46 +1,39 @@
 import * as vscode from "vscode";
-import { registerExplainWorkspaceCommand } from "./commands/registerExplainWorkspaceCommand";
-import { registerHelloCommand } from "./commands/registerHelloCommand";
-import { registerInspectWorkspaceSnapshotCommand } from "./commands/registerInspectWorkspaceSnapshotCommand";
-import { registerOpenSidebarCommand } from "./commands/registerOpenSidebarCommand";
-import { createRuntime } from "./state/runtime";
-import { ControlAgentSidebarProvider } from "./webview/ControlAgentSidebarProvider";
-import { CONTROL_AGENT_SIDEBAR_VIEW_ID } from "./webview/sidebarViewId";
+import { registerCommands } from "./bootstrap/registerCommands";
+import { registerServices } from "./bootstrap/registerServices";
+import { registerViews } from "./bootstrap/registerViews";
 
 /**
  * Extension entry point.
  *
- * B5 adds:
- * - configuration change awareness for the sidebar shell
- * - keeps the sidebar as the main extension surface
+ * change:
+ * - extension.ts becomes a thin composition root
+ * - service construction moves into bootstrap/registerServices
+ * - command wiring moves into bootstrap/registerCommands
+ * - view wiring moves into bootstrap/registerViews
+ *
  */
 export function activate(context: vscode.ExtensionContext): void {
-  const runtime = createRuntime(context);
+  const services = registerServices(context);
 
-  runtime.output.appendLine("Activating VS Code Control Agent...");
-
-  context.subscriptions.push(runtime.output);
-
-  const sidebarProvider = new ControlAgentSidebarProvider(runtime);
-
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      CONTROL_AGENT_SIDEBAR_VIEW_ID,
-      sidebarProvider
-    )
-  );
-
-  context.subscriptions.push(registerHelloCommand(runtime));
-  context.subscriptions.push(registerInspectWorkspaceSnapshotCommand(runtime));
-  context.subscriptions.push(
-    registerOpenSidebarCommand(runtime, sidebarProvider)
-  );
-  context.subscriptions.push(
-    registerExplainWorkspaceCommand(runtime, sidebarProvider)
-  );
+  services.runtime.output.appendLine("Activating VS Code Control Agent...");
 
   /**
-   * Keep the visible shell configuration in sync when controlAgent settings change.
+   * The shared output channel is a disposable resource and must be tied
+   * to the extension lifecycle.
+   */
+  context.subscriptions.push(services.runtime.output);
+
+  /**
+   * Register all extension surfaces through dedicated bootstrap functions.
+   */
+  registerViews(context, services);
+  registerCommands(context, services);
+
+  /**
+   * Keep the visible shell configuration in sync while the old sidebar-based
+   * flow still exists. This remains transitional until later phases move more
+   * behavior into the local runtime/service path.
    */
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((event) => {
@@ -48,14 +41,22 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
 
-      runtime.output.appendLine("[sidebar] controlAgent configuration changed");
-      void sidebarProvider.refreshShellConfiguration("configuration changed");
+      services.runtime.output.appendLine(
+        "[sidebar] controlAgent configuration changed"
+      );
+
+      void services.sidebarProvider.refreshShellConfiguration(
+        "configuration changed"
+      );
     })
   );
 
-  runtime.output.appendLine("VS Code Control Agent activated.");
+  services.runtime.output.appendLine("VS Code Control Agent activated.");
 }
 
 export function deactivate(): void {
-  // Nothing to tear down yet.
+  /**
+   * No explicit teardown is needed yet.
+   * Later phases may dispose runtime-owned resources here.
+   */
 }
