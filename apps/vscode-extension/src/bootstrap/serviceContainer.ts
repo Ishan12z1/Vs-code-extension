@@ -1,14 +1,15 @@
 import type { AgentRuntime } from "../agent/runtime/AgentRuntime";
 import type { AgentRunService } from "../services/AgentRunService";
 import type { HistoryService } from "../services/HistoryService";
+import type { SetupInspectionService } from "../services/SetupInspectionService";
 import type { ExtensionRuntime } from "../state/runtime";
 import type { ControlAgentSidebarProvider } from "../webview/ControlAgentSidebarProvider";
 
 /**
  * Central container for shared extension objects.
  *
- * This grows over time as the local-first runtime is introduced.
- * It is intentionally simple and explicit.
+ * This keeps shared dependencies explicit and easy to evolve.
+ * It is intentionally small and typed.
  */
 export interface ServiceContainer {
   /**
@@ -27,12 +28,17 @@ export interface ServiceContainer {
   readonly agentRuntime: AgentRuntime;
 
   /**
-   * Service entrypoint for starting runs.
+   * Service entrypoint for starting agent runs.
    */
   readonly agentRunService: AgentRunService;
 
   /**
-   * Service entrypoint for history reads.
+   * Service entrypoint for reading run history.
    */
   readonly historyService: HistoryService;
+
+  /**
+   * Service entrypoint for collecting the current workspace/setup snapshot.
+   */
+  readonly setupInspectionService: SetupInspectionService;
 }

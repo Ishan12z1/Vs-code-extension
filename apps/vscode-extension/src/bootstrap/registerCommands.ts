@@ -8,13 +8,9 @@ import type { ServiceContainer } from "./serviceContainer";
 /**
  * Registers extension commands.
  *
- * Why this file exists:
- * - keeps command wiring separate from command implementation
- * - prepares the repo for later service-based command handlers
- *
- * Current phase note:
- * - commands still use the existing implementations
- * - phase 2.4 will start routing them through the new service layer
+ * Phase 2.4 change:
+ * - command handlers are now wired against services where appropriate
+ * - command implementations should stay thin and orchestration-free
  */
 export function registerCommands(
   context: vscode.ExtensionContext,
@@ -23,7 +19,10 @@ export function registerCommands(
   context.subscriptions.push(registerHelloCommand(services.runtime));
 
   context.subscriptions.push(
-    registerInspectWorkspaceSnapshotCommand(services.runtime)
+    registerInspectWorkspaceSnapshotCommand(
+      services.runtime,
+      services.setupInspectionService
+    )
   );
 
   context.subscriptions.push(
@@ -31,6 +30,6 @@ export function registerCommands(
   );
 
   context.subscriptions.push(
-    registerExplainWorkspaceCommand(services.runtime, services.sidebarProvider)
+    registerExplainWorkspaceCommand(services.runtime, services.agentRunService)
   );
 }

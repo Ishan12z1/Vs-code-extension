@@ -1,25 +1,26 @@
 import * as vscode from "vscode";
 import type { ExtensionRuntime } from "../state/runtime";
-import { createDefaultInspectors } from "../inspectors/createDefaultInspectors";
-import { WorkspaceSnapshotBuilder } from "../inspectors/WorkspaceSnapshotBuilder";
+import type { SetupInspectionService } from "../services/SetupInspectionService";
 
 /**
- * Temporary smoke-test command .
- * This is not the final summary UI.
- * It just proves the builder works and logs the snapshot.
+ * User-facing inspect command.
+ *
+ * Phase 2.4 change:
+ * - the command no longer constructs WorkspaceSnapshotBuilder directly
+ * - snapshot collection now goes through SetupInspectionService
+ *
+ * Why this matters:
+ * - keeps the command handler thin
+ * - moves application logic behind a service boundary
  */
 export function registerInspectWorkspaceSnapshotCommand(
-  runtime: ExtensionRuntime
+  runtime: ExtensionRuntime,
+  setupInspectionService: SetupInspectionService
 ): vscode.Disposable {
   return vscode.commands.registerCommand(
     "controlAgent.inspectWorkspaceSnapshot",
     async () => {
-      const builder = new WorkspaceSnapshotBuilder(
-        runtime,
-        createDefaultInspectors()
-      );
-
-      const snapshot = await builder.build();
+      const snapshot = await setupInspectionService.collectSnapshot();
 
       runtime.output.appendLine("[inspect] snapshot build complete");
       runtime.output.appendLine(JSON.stringify(snapshot, null, 2));
