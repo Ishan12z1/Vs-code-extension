@@ -6,7 +6,7 @@ from app.db.session import get_db_session
 from app.dependencies.planner import get_planner_service
 from app.main import app
 from app.planner.result import PlannerRunRecord
-from app.planner.schemas import ExplanationPayload
+from app.planner.schemas import ExplanationPayload, ExplanationResponse
 
 client = TestClient(app)
 
@@ -91,13 +91,13 @@ class FakePlannerService:
         return PlannerRunRecord(
             response=ExplanationPayload(
                 kind="explanation",
-                data={
-                    "id": "exp-1",
-                    "requestClass": "explain",
-                    "title": "Current VS Code setup overview",
-                    "explanation": "Your workspace contains VS Code settings and formatter signals.",
-                    "suggestedNextSteps": ["Review workspace settings."],
-                },
+                data=ExplanationResponse(
+                    id="exp-1",
+                    requestClass="explain",
+                    title="Current VS Code setup overview",
+                    explanation="Your workspace contains VS Code settings and formatter signals.",
+                    suggestedNextSteps=["Review workspace settings."],
+                ),
             ),
             resolved_request_class="explain",
             classification_source="hint",
