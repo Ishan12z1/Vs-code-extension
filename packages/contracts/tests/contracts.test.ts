@@ -2,12 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  ExecutionPlanSchema,
   PlanRequestSchema,
   PlanResponseSchema,
   WorkspaceSnapshotAcceptanceRequestSchema,
+  legacy,
 } from "../src";
-import { PlannedActionSchema } from "../src/actions";
 
 /**
  * Small helper that asserts one Zod schema accepts a payload.
@@ -181,7 +180,7 @@ test("PlannedActionSchema rejects an invalid action type", () => {
     actionType: "deleteEverything",
   };
 
-  expectParseFailure(PlannedActionSchema, payload);
+  expectParseFailure(legacy.PlannedActionSchema, payload);
 });
 
 test("PlannedActionSchema rejects an invalid scope", () => {
@@ -192,7 +191,7 @@ test("PlannedActionSchema rejects an invalid scope", () => {
     scope: "global",
   };
 
-  expectParseFailure(PlannedActionSchema, payload);
+  expectParseFailure(legacy.PlannedActionSchema, payload);
 });
 
 test("PlannedActionSchema rejects an invalid preview payload", () => {
@@ -206,7 +205,7 @@ test("PlannedActionSchema rejects an invalid preview payload", () => {
     },
   };
 
-  expectParseFailure(PlannedActionSchema, payload);
+  expectParseFailure(legacy.PlannedActionSchema, payload);
 });
 
 test("ExecutionPlanSchema accepts a valid execution plan", () => {
@@ -223,7 +222,7 @@ test("ExecutionPlanSchema accepts a valid execution plan", () => {
     actions: [buildValidPlannedAction()],
   };
 
-  const parsed = expectParseSuccess(ExecutionPlanSchema, payload);
+  const parsed = legacy.ExecutionPlanSchema.parse(payload);
 
   assert.equal(parsed.id, "plan-1");
   assert.equal(parsed.actions.length, 1);
@@ -246,7 +245,7 @@ test("ExecutionPlanSchema rejects an empty actions array", () => {
     actions: [],
   };
 
-  expectParseFailure(ExecutionPlanSchema, payload);
+  expectParseFailure(legacy.ExecutionPlanSchema, payload);
 });
 
 test("WorkspaceSnapshotAcceptanceRequestSchema accepts a valid payload", () => {

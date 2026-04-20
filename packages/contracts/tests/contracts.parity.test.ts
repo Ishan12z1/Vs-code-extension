@@ -4,9 +4,9 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 import {
-  ExecutionPlanSchema,
   PlanRequestSchema,
   WorkspaceSnapshotAcceptanceRequestSchema,
+  legacy,
 } from "../src";
 
 /**
@@ -37,7 +37,7 @@ test("TS parity: invalid plan request fixture is rejected", () => {
 
 test("TS parity: valid execution plan fixture is accepted", () => {
   const payload = loadFixture("valid-execution-plan.json");
-  const parsed = ExecutionPlanSchema.parse(payload);
+  const parsed = legacy.ExecutionPlanSchema.parse(payload);
 
   assert.equal(parsed.id, "plan-1");
 });
@@ -45,7 +45,7 @@ test("TS parity: valid execution plan fixture is accepted", () => {
 test("TS parity: invalid execution plan fixture is rejected", () => {
   const payload = loadFixture("invalid-execution-plan-action-type.json");
 
-  assert.throws(() => ExecutionPlanSchema.parse(payload));
+  assert.throws(() => legacy.ExecutionPlanSchema.parse(payload));
 });
 
 test("TS parity: valid workspace snapshot acceptance fixture is accepted", () => {
