@@ -63,7 +63,7 @@
         "controlAgent.backendUrl": {
           "type": "string",
           "default": "http://127.0.0.1:8000",
-          "description": "Backend base URL used by the extension."
+          "description": "Legacy backend base URL used by the deprecated hosted-backend path. This setting is not part of the primary V1 local-first runtime."
         },
         "controlAgent.enableDebugLogs": {
           "type": "boolean",
