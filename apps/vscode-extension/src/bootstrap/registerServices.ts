@@ -7,6 +7,7 @@ import { ApprovalRepository } from "../persistence/repositories/ApprovalReposito
 import { CheckpointRepository } from "../persistence/repositories/CheckpointRepository";
 import { MarketplaceCacheRepository } from "../persistence/repositories/MarketplaceCacheRepository";
 import { RunRepository } from "../persistence/repositories/RunRepository";
+import { SnapshotStore } from "../persistence/snapshots/SnapshotStore";
 import { AgentRunService } from "../services/AgentRunService";
 import { HistoryService } from "../services/HistoryService";
 import { SetupInspectionService } from "../services/SetupInspectionService";
@@ -17,8 +18,8 @@ import type { ServiceContainer } from "./serviceContainer";
 /**
  * Creates the shared objects used across the extension.
  *
- * Phase switch note:
- * - opening sql.js is async, so service registration is now async too
+ * Phase 3.4 change:
+ * - file-based snapshot storage now exists alongside SQLite metadata storage
  */
 export async function registerServices(
   context: vscode.ExtensionContext
@@ -38,6 +39,11 @@ export async function registerServices(
   const approvalRepository = new ApprovalRepository(db);
   const checkpointRepository = new CheckpointRepository(db);
   const marketplaceCacheRepository = new MarketplaceCacheRepository(db);
+
+  /**
+   * File-based snapshot store for rollback artifacts.
+   */
+  const snapshotStore = new SnapshotStore(runtime);
 
   /**
    * Local runtime skeleton.
@@ -62,6 +68,7 @@ export async function registerServices(
     approvalRepository,
     checkpointRepository,
     marketplaceCacheRepository,
+    snapshotStore,
     agentRunService,
     historyService,
     setupInspectionService,

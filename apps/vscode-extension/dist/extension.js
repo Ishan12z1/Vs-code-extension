@@ -68,6 +68,19 @@ async function activate(context) {
         services.runtime.output.appendLine("[sidebar] controlAgent configuration changed");
         void services.sidebarProvider.refreshShellConfiguration("configuration changed");
     }));
+    services.snapshotStore.saveSnapshot({
+        snapshotId: `snapshot-${Date.now()}`,
+        runId: "manual-smoke-run",
+        stepIndex: 0,
+        surface: "workspaceSettings",
+        target: ".vscode/settings.json",
+        actionOperation: "set",
+        snapshotKind: "before-write",
+        snapshotData: {
+            "editor.formatOnSave": false,
+        },
+        createdAt: new Date().toISOString(),
+    });
     services.runtime.output.appendLine("VS Code Control Agent activated.");
 }
 function deactivate() {

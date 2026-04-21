@@ -4,6 +4,7 @@ import type { ApprovalRepository } from "../persistence/repositories/ApprovalRep
 import type { CheckpointRepository } from "../persistence/repositories/CheckpointRepository";
 import type { MarketplaceCacheRepository } from "../persistence/repositories/MarketplaceCacheRepository";
 import type { RunRepository } from "../persistence/repositories/RunRepository";
+import type { SnapshotStore } from "../persistence/snapshots/SnapshotStore";
 import type { AgentRunService } from "../services/AgentRunService";
 import type { HistoryService } from "../services/HistoryService";
 import type { SetupInspectionService } from "../services/SetupInspectionService";
@@ -34,6 +35,11 @@ export interface ServiceContainer {
   readonly approvalRepository: ApprovalRepository;
   readonly checkpointRepository: CheckpointRepository;
   readonly marketplaceCacheRepository: MarketplaceCacheRepository;
+
+  /**
+   * File-based snapshot persistence.
+   */
+  readonly snapshotStore: SnapshotStore;
 
   /**
    * Application-facing services.
