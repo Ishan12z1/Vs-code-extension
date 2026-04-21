@@ -83,6 +83,7 @@
     "package": "npm run build"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.90.0",
     "rimraf": "^5.0.0",
@@ -90,6 +91,7 @@
   },
   "dependencies": {
     "@control-agent/contracts": "0.0.1",
+    "better-sqlite3": "^12.9.0",
     "jsonc-parser": "^3.3.1"
   }
 }

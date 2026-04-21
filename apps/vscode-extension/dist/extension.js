@@ -36,43 +36,50 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
-const registerExplainWorkspaceCommand_1 = require("./commands/registerExplainWorkspaceCommand");
-const registerHelloCommand_1 = require("./commands/registerHelloCommand");
-const registerInspectWorkspaceSnapshotCommand_1 = require("./commands/registerInspectWorkspaceSnapshotCommand");
-const registerOpenSidebarCommand_1 = require("./commands/registerOpenSidebarCommand");
-const runtime_1 = require("./state/runtime");
-const ControlAgentSidebarProvider_1 = require("./webview/ControlAgentSidebarProvider");
-const sidebarViewId_1 = require("./webview/sidebarViewId");
+const registerCommands_1 = require("./bootstrap/registerCommands");
+const registerServices_1 = require("./bootstrap/registerServices");
+const registerViews_1 = require("./bootstrap/registerViews");
 /**
  * Extension entry point.
  *
- * B5 adds:
- * - configuration change awareness for the sidebar shell
- * - keeps the sidebar as the main extension surface
+ * change:
+ * - extension.ts becomes a thin composition root
+ * - service construction moves into bootstrap/registerServices
+ * - command wiring moves into bootstrap/registerCommands
+ * - view wiring moves into bootstrap/registerViews
+ *
  */
 function activate(context) {
-    const runtime = (0, runtime_1.createRuntime)(context);
-    runtime.output.appendLine("Activating VS Code Control Agent...");
-    context.subscriptions.push(runtime.output);
-    const sidebarProvider = new ControlAgentSidebarProvider_1.ControlAgentSidebarProvider(runtime);
-    context.subscriptions.push(vscode.window.registerWebviewViewProvider(sidebarViewId_1.CONTROL_AGENT_SIDEBAR_VIEW_ID, sidebarProvider));
-    context.subscriptions.push((0, registerHelloCommand_1.registerHelloCommand)(runtime));
-    context.subscriptions.push((0, registerInspectWorkspaceSnapshotCommand_1.registerInspectWorkspaceSnapshotCommand)(runtime));
-    context.subscriptions.push((0, registerOpenSidebarCommand_1.registerOpenSidebarCommand)(runtime, sidebarProvider));
-    context.subscriptions.push((0, registerExplainWorkspaceCommand_1.registerExplainWorkspaceCommand)(runtime, sidebarProvider));
+    const services = (0, registerServices_1.registerServices)(context);
+    services.runtime.output.appendLine("Activating VS Code Control Agent...");
     /**
-     * Keep the visible shell configuration in sync when controlAgent settings change.
+     * The shared output channel is a disposable resource and must be tied
+     * to the extension lifecycle.
+     */
+    context.subscriptions.push(services.runtime.output);
+    /**
+     * Register all extension surfaces through dedicated bootstrap functions.
+     */
+    (0, registerViews_1.registerViews)(context, services);
+    (0, registerCommands_1.registerCommands)(context, services);
+    /**
+     * Keep the visible shell configuration in sync while the old sidebar-based
+     * flow still exists. This remains transitional until later phases move more
+     * behavior into the local runtime/service path.
      */
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
         if (!event.affectsConfiguration("controlAgent")) {
             return;
         }
-        runtime.output.appendLine("[sidebar] controlAgent configuration changed");
-        void sidebarProvider.refreshShellConfiguration("configuration changed");
+        services.runtime.output.appendLine("[sidebar] controlAgent configuration changed");
+        void services.sidebarProvider.refreshShellConfiguration("configuration changed");
     }));
-    runtime.output.appendLine("VS Code Control Agent activated.");
+    services.runtime.output.appendLine("VS Code Control Agent activated.");
 }
 function deactivate() {
-    // Nothing to tear down yet.
+    /**
+     * No explicit teardown is needed yet.
+     * Later phases may dispose runtime-owned resources here.
+     */
 }
 //# sourceMappingURL=extension.js.map
