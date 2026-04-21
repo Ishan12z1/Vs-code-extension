@@ -1,30 +1,27 @@
 import type { AgentRunState, RunHistoryEntry } from "@control-agent/contracts";
+import { RunRepository } from "../persistence/repositories/RunRepository";
 
 /**
- * Placeholder history service.
+ * History service backed by the run repository.
  *
- * Why this exists now:
- * - commands/UI will soon need a stable service interface for run history
- * - persistence does not exist yet, so we return mock/derived data for now
- *
- * Later phases will replace this with real local persistence.
+ * Phase 3.3 change:
+ * - history is no longer a hard-coded empty list
+ * - it now reads durable run metadata from SQLite
  */
 export class HistoryService {
+  public constructor(private readonly runRepository: RunRepository) {}
+
   /**
-   * Return the recent run history.
-   *
-   * Current phase note:
-   * - returns an empty list because persistence is not built yet
+   * Return recent persisted runs.
    */
-  public listRecentRuns(): RunHistoryEntry[] {
-    return [];
+  public listRecentRuns(limit = 20): RunHistoryEntry[] {
+    return this.runRepository.listRecentRuns(limit);
   }
 
   /**
    * Convert an in-memory run state into a lightweight history entry.
    *
-   * This helper is useful even before persistence exists because it defines
-   * what a history summary should look like.
+   * This helper still has value for places that derive UI state before writes.
    */
   public toHistoryEntry(state: AgentRunState): RunHistoryEntry {
     return {

@@ -1,27 +1,21 @@
 import type { AgentGoal, AgentRunState } from "@control-agent/contracts";
 import { AgentRuntime } from "../agent/runtime/AgentRuntime";
+import { RunRepository } from "../persistence/repositories/RunRepository";
 
 /**
  * Application-facing service for starting agent runs.
  *
- * Why this exists:
- * - commands and UI should not talk directly to AgentRuntime
- * - this gives us a clean service layer boundary
- * - later phases can add persistence, history writes, validation,
- *   and approval coordination here
- *
- * Current phase note:
- * - this is a thin wrapper around AgentRuntime
+ * Phase 3.3 change:
+ * - starting a run now also persists durable run metadata
  */
 export class AgentRunService {
-  public constructor(private readonly agentRuntime: AgentRuntime) {}
+  public constructor(
+    private readonly agentRuntime: AgentRuntime,
+    private readonly runRepository: RunRepository
+  ) {}
 
   /**
-   * Start a run from plain user text.
-   *
-   * Why convert text to a goal here:
-   * - keeps commands thinner
-   * - keeps the runtime focused on run orchestration, not UI input shaping
+   * Start a run from plain user text and persist the initial run state.
    */
   public startGoal(goalText: string): AgentRunState {
     const goal: AgentGoal = {
@@ -30,6 +24,13 @@ export class AgentRunService {
       createdAt: new Date().toISOString(),
     };
 
-    return this.agentRuntime.startRun(goal);
+    const runState = this.agentRuntime.startRun(goal);
+
+    /**
+     * Persist the new run immediately so local history becomes durable.
+     */
+    this.runRepository.upsertRun(runState);
+
+    return runState;
   }
 }

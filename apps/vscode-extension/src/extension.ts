@@ -2,16 +2,14 @@ import * as vscode from "vscode";
 import { registerCommands } from "./bootstrap/registerCommands";
 import { registerServices } from "./bootstrap/registerServices";
 import { registerViews } from "./bootstrap/registerViews";
+import { closeSqliteDatabase } from "./persistence/db/sqlite";
 
 /**
  * Extension entry point.
  *
- * change:
- * - extension.ts becomes a thin composition root
- * - service construction moves into bootstrap/registerServices
- * - command wiring moves into bootstrap/registerCommands
- * - view wiring moves into bootstrap/registerViews
- *
+ * Phase 3.3 change:
+ * - the SQLite database is now opened through registerServices
+ * - extension shutdown now closes the DB handle explicitly
  */
 export function activate(context: vscode.ExtensionContext): void {
   const services = registerServices(context);
@@ -23,6 +21,15 @@ export function activate(context: vscode.ExtensionContext): void {
    * to the extension lifecycle.
    */
   context.subscriptions.push(services.runtime.output);
+
+  /**
+   * Ensure the open SQLite connection is closed when the extension unloads.
+   */
+  context.subscriptions.push({
+    dispose: () => {
+      closeSqliteDatabase(services.runtime, services.db);
+    },
+  });
 
   /**
    * Register all extension surfaces through dedicated bootstrap functions.
@@ -56,7 +63,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void {
   /**
-   * No explicit teardown is needed yet.
-   * Later phases may dispose runtime-owned resources here.
+   * Explicit DB teardown is handled by the subscription registered above.
    */
 }

@@ -39,15 +39,13 @@ const vscode = __importStar(require("vscode"));
 const registerCommands_1 = require("./bootstrap/registerCommands");
 const registerServices_1 = require("./bootstrap/registerServices");
 const registerViews_1 = require("./bootstrap/registerViews");
+const sqlite_1 = require("./persistence/db/sqlite");
 /**
  * Extension entry point.
  *
- * change:
- * - extension.ts becomes a thin composition root
- * - service construction moves into bootstrap/registerServices
- * - command wiring moves into bootstrap/registerCommands
- * - view wiring moves into bootstrap/registerViews
- *
+ * Phase 3.3 change:
+ * - the SQLite database is now opened through registerServices
+ * - extension shutdown now closes the DB handle explicitly
  */
 function activate(context) {
     const services = (0, registerServices_1.registerServices)(context);
@@ -57,6 +55,14 @@ function activate(context) {
      * to the extension lifecycle.
      */
     context.subscriptions.push(services.runtime.output);
+    /**
+     * Ensure the open SQLite connection is closed when the extension unloads.
+     */
+    context.subscriptions.push({
+        dispose: () => {
+            (0, sqlite_1.closeSqliteDatabase)(services.runtime, services.db);
+        },
+    });
     /**
      * Register all extension surfaces through dedicated bootstrap functions.
      */
@@ -78,8 +84,7 @@ function activate(context) {
 }
 function deactivate() {
     /**
-     * No explicit teardown is needed yet.
-     * Later phases may dispose runtime-owned resources here.
+     * Explicit DB teardown is handled by the subscription registered above.
      */
 }
 //# sourceMappingURL=extension.js.map

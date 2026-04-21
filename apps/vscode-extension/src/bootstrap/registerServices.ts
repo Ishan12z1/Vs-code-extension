@@ -2,6 +2,11 @@ import * as vscode from "vscode";
 import { RunCoordinator } from "../agent/orchestration/RunCoordinator";
 import { AgentRuntime } from "../agent/runtime/AgentRuntime";
 import { RunStateMachine } from "../agent/runtime/RunStateMachine";
+import { openSqliteDatabase } from "../persistence/db/sqlite";
+import { ApprovalRepository } from "../persistence/repositories/ApprovalRepository";
+import { CheckpointRepository } from "../persistence/repositories/CheckpointRepository";
+import { MarketplaceCacheRepository } from "../persistence/repositories/MarketplaceCacheRepository";
+import { RunRepository } from "../persistence/repositories/RunRepository";
 import { AgentRunService } from "../services/AgentRunService";
 import { HistoryService } from "../services/HistoryService";
 import { SetupInspectionService } from "../services/SetupInspectionService";
@@ -12,9 +17,10 @@ import type { ServiceContainer } from "./serviceContainer";
 /**
  * Creates the shared objects used across the extension.
  *
- * Phase 2.4 note:
- * - commands now depend on services instead of doing work directly
- * - we therefore register SetupInspectionService alongside AgentRunService
+ * Phase 3.3 change:
+ * - SQLite is now opened during service registration
+ * - repositories are constructed here
+ * - services start depending on repositories instead of mock-only behavior
  */
 export function registerServices(
   context: vscode.ExtensionContext
@@ -27,27 +33,41 @@ export function registerServices(
   const sidebarProvider = new ControlAgentSidebarProvider(runtime);
 
   /**
+   * Open the durable local SQLite database.
+   */
+  const db = openSqliteDatabase(runtime);
+
+  /**
+   * Repository layer over the SQLite schema.
+   */
+  const runRepository = new RunRepository(db);
+  const approvalRepository = new ApprovalRepository(db);
+  const checkpointRepository = new CheckpointRepository(db);
+  const marketplaceCacheRepository = new MarketplaceCacheRepository(db);
+
+  /**
    * Local runtime skeleton.
-   *
-   * Construction order stays explicit so the dependency graph remains readable.
    */
   const runStateMachine = new RunStateMachine();
   const runCoordinator = new RunCoordinator(runStateMachine);
   const agentRuntime = new AgentRuntime(runCoordinator);
 
   /**
-   * Placeholder service layer.
-   *
-   * These services become the main API used by command handlers.
+   * Application-facing services.
    */
-  const agentRunService = new AgentRunService(agentRuntime);
-  const historyService = new HistoryService();
+  const agentRunService = new AgentRunService(agentRuntime, runRepository);
+  const historyService = new HistoryService(runRepository);
   const setupInspectionService = new SetupInspectionService(runtime);
 
   return {
     runtime,
     sidebarProvider,
+    db,
     agentRuntime,
+    runRepository,
+    approvalRepository,
+    checkpointRepository,
+    marketplaceCacheRepository,
     agentRunService,
     historyService,
     setupInspectionService,
