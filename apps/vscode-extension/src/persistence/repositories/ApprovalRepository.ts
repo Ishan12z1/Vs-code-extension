@@ -1,5 +1,10 @@
 import type { ApprovalDecisionRecord } from "@control-agent/contracts";
-import type { SqliteDatabase } from "../db/sqlite";
+import {
+  executeMutation,
+  queryAll,
+  queryOne,
+  type SqliteDatabase,
+} from "../db/sqlite";
 
 /**
  * Repository for durable approval records.
@@ -7,65 +12,56 @@ import type { SqliteDatabase } from "../db/sqlite";
 export class ApprovalRepository {
   public constructor(private readonly db: SqliteDatabase) {}
 
-  /**
-   * Insert or update one approval decision record.
-   *
-   * Why upsert:
-   * - keeps the write path idempotent during early runtime bring-up
-   */
   public recordDecision(record: ApprovalDecisionRecord): void {
-    this.db
-      .prepare(
-        `
-          INSERT INTO approvals (
-            request_id,
-            run_id,
-            decision,
-            reason,
-            decided_at
-          )
-          VALUES (?, ?, ?, ?, ?)
-          ON CONFLICT(request_id) DO UPDATE SET
-            run_id = excluded.run_id,
-            decision = excluded.decision,
-            reason = excluded.reason,
-            decided_at = excluded.decided_at
-        `
-      )
-      .run(
+    executeMutation(
+      this.db,
+      `
+        INSERT INTO approvals (
+          request_id,
+          run_id,
+          decision,
+          reason,
+          decided_at
+        )
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(request_id) DO UPDATE SET
+          run_id = excluded.run_id,
+          decision = excluded.decision,
+          reason = excluded.reason,
+          decided_at = excluded.decided_at
+      `,
+      [
         record.requestId,
         record.runId,
         record.decision,
         record.reason ?? null,
-        record.decidedAt
-      );
+        record.decidedAt,
+      ]
+    );
   }
 
-  /**
-   * Return all approval records for one run.
-   */
   public listByRunId(runId: string): ApprovalDecisionRecord[] {
-    const rows = this.db
-      .prepare(
-        `
-          SELECT
-            request_id,
-            run_id,
-            decision,
-            reason,
-            decided_at
-          FROM approvals
-          WHERE run_id = ?
-          ORDER BY decided_at ASC
-        `
-      )
-      .all(runId) as Array<{
+    const rows = queryAll<{
       request_id: string;
       run_id: string;
       decision: ApprovalDecisionRecord["decision"];
       reason: string | null;
       decided_at: string;
-    }>;
+    }>(
+      this.db,
+      `
+        SELECT
+          request_id,
+          run_id,
+          decision,
+          reason,
+          decided_at
+        FROM approvals
+        WHERE run_id = ?
+        ORDER BY decided_at ASC
+      `,
+      [runId]
+    );
 
     return rows.map((row) => ({
       requestId: row.request_id,
@@ -76,20 +72,17 @@ export class ApprovalRepository {
     }));
   }
 
-  /**
-   * Return the number of approval decisions for one run.
-   */
   public countByRunId(runId: string): number {
-    const row = this.db
-      .prepare(
-        `
-          SELECT COUNT(*) AS count
-          FROM approvals
-          WHERE run_id = ?
-        `
-      )
-      .get(runId) as { count: number };
+    const row = queryOne<{ count: number }>(
+      this.db,
+      `
+        SELECT COUNT(*) AS count
+        FROM approvals
+        WHERE run_id = ?
+      `,
+      [runId]
+    );
 
-    return row.count;
+    return row?.count ?? 0;
   }
 }

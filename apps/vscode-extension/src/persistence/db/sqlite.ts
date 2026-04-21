@@ -1,12 +1,60 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import Database from "better-sqlite3";
+import initSqlJs from "sql.js";
 import type { ExtensionRuntime } from "../../state/runtime";
 
 /**
- * Small wrapper type for the concrete SQLite database instance.
+ * Lightweight structural type for the sql.js database handle.
+ *
+ * Why a structural type instead of deep package-specific typing:
+ * - keeps the rest of the code decoupled from sql.js internals
+ * - gives repositories a stable interface to work against
+ * - makes it easier to change the backing implementation later if needed
  */
-export type SqliteDatabase = Database.Database;
+interface SqlJsDatabaseHandle {
+  run(sql: string, params?: unknown): void;
+  exec(sql: string): Array<{
+    columns: string[];
+    values: unknown[][];
+  }>;
+  prepare(sql: string): {
+    bind(params?: unknown): void;
+    step(): boolean;
+    getAsObject(): Record<string, unknown>;
+    free(): void;
+  };
+  export(): Uint8Array;
+  close(): void;
+}
+
+/**
+ * Lightweight structural type for the sql.js module.
+ */
+interface SqlJsModuleHandle {
+  Database: new (data?: Uint8Array) => SqlJsDatabaseHandle;
+}
+
+/**
+ * Supported SQL parameter shapes used by repositories.
+ */
+export type SqlParameters =
+  | readonly unknown[]
+  | Record<string, unknown>
+  | undefined;
+
+/**
+ * Wrapper for the open sql.js database plus its file location.
+ *
+ * Why this wrapper exists:
+ * - sql.js is an in-memory database engine
+ * - durability comes from reading/writing the serialized DB file ourselves
+ * - repositories should not need to know those file details
+ */
+export interface SqliteDatabase {
+  readonly module: SqlJsModuleHandle;
+  readonly db: SqlJsDatabaseHandle;
+  readonly databaseFile: string;
+}
 
 /**
  * Filesystem locations used by the local persistence layer.
@@ -96,6 +144,59 @@ function resolveExistingMigrationDirectory(runtime: ExtensionRuntime): string {
 }
 
 /**
+ * Resolve the sql.js WASM asset path.
+ *
+ * Why require.resolve:
+ * - gives us the installed package asset path directly
+ * - avoids hard-coding a fragile node_modules path manually
+ */
+function resolveSqlJsWasmPath(): string {
+  return require.resolve("sql.js/dist/sql-wasm.wasm");
+}
+
+/**
+ * Create and initialize the sql.js module.
+ *
+ * Important:
+ * - sql.js initialization is async
+ * - this is the main behavior difference from better-sqlite3
+ */
+async function loadSqlJsModule(): Promise<SqlJsModuleHandle> {
+  const wasmPath = resolveSqlJsWasmPath();
+
+  const sqlModule = await initSqlJs({
+    locateFile: () => wasmPath,
+  });
+
+  return sqlModule as unknown as SqlJsModuleHandle;
+}
+
+/**
+ * Load an existing serialized database file if present.
+ */
+function loadExistingDatabaseBytes(
+  databaseFile: string
+): Uint8Array | undefined {
+  if (!fs.existsSync(databaseFile)) {
+    return undefined;
+  }
+
+  return fs.readFileSync(databaseFile);
+}
+
+/**
+ * Persist the current in-memory sql.js database to disk.
+ *
+ * Why this exists:
+ * - sql.js is in-memory at runtime
+ * - durability requires exporting the DB bytes after writes
+ */
+export function persistSqliteDatabase(db: SqliteDatabase): void {
+  const bytes = db.db.export();
+  fs.writeFileSync(db.databaseFile, Buffer.from(bytes));
+}
+
+/**
  * Ensure the migration bookkeeping table exists.
  *
  * Important:
@@ -104,7 +205,7 @@ function resolveExistingMigrationDirectory(runtime: ExtensionRuntime): string {
  *   before normal migrations can be tracked safely
  */
 function ensureMigrationTable(db: SqliteDatabase): void {
-  db.exec(`
+  db.db.run(`
     CREATE TABLE IF NOT EXISTS _schema_migrations (
       id TEXT PRIMARY KEY,
       applied_at TEXT NOT NULL
@@ -116,19 +217,16 @@ function ensureMigrationTable(db: SqliteDatabase): void {
  * Read the set of already-applied migration ids.
  */
 function getAppliedMigrationIds(db: SqliteDatabase): Set<string> {
-  const rows = db
-    .prepare("SELECT id FROM _schema_migrations ORDER BY id ASC")
-    .all() as Array<{ id: string }>;
+  const rows = queryAll<{ id: string }>(
+    db,
+    "SELECT id FROM _schema_migrations ORDER BY id ASC"
+  );
 
   return new Set(rows.map((row) => row.id));
 }
 
 /**
  * Load migration files from disk in lexical order.
- *
- * Why lexical order:
- * - numbered files such as 001_, 002_, 003_ make ordering explicit
- * - it keeps migration execution deterministic
  */
 function loadMigrationsFromDirectory(dirPath: string): SqliteMigration[] {
   const fileNames = fs
@@ -150,10 +248,8 @@ function loadMigrationsFromDirectory(dirPath: string): SqliteMigration[] {
 /**
  * Apply pending migrations exactly once.
  *
- * Each migration runs inside a transaction:
- * - the SQL executes
- * - the migration record is inserted
- * - either both happen or neither happens
+ * sql.js does not give us the same transaction helper shape as better-sqlite3,
+ * so we explicitly bracket each migration with BEGIN/COMMIT/ROLLBACK.
  */
 export function applySqliteMigrations(
   runtime: ExtensionRuntime,
@@ -181,45 +277,56 @@ export function applySqliteMigrations(
       `[persistence] applying migration: ${migration.id}`
     );
 
-    const applyOne = db.transaction(() => {
-      db.exec(migration.sql);
-
-      db.prepare(
+    try {
+      db.db.run("BEGIN");
+      db.db.run(migration.sql);
+      db.db.run(
         `
           INSERT INTO _schema_migrations (id, applied_at)
           VALUES (?, ?)
-        `
-      ).run(migration.id, new Date().toISOString());
-    });
-
-    applyOne();
+        `,
+        [migration.id, new Date().toISOString()]
+      );
+      db.db.run("COMMIT");
+    } catch (error) {
+      db.db.run("ROLLBACK");
+      throw error;
+    }
   }
+
+  /**
+   * Persist the migrated DB so the schema survives reloads.
+   */
+  persistSqliteDatabase(db);
 }
 
 /**
  * Open the local SQLite database for the extension.
  *
- * Phase 3.2 change:
- * - opening the DB now also applies pending migrations
+ * Phase switch note:
+ * - sql.js initialization is async
+ * - the DB is loaded from disk into memory
+ * - migrations are applied
+ * - the caller receives a durable wrapper
  */
-export function openSqliteDatabase(runtime: ExtensionRuntime): SqliteDatabase {
+export async function openSqliteDatabase(
+  runtime: ExtensionRuntime
+): Promise<SqliteDatabase> {
   const paths = ensurePersistenceDirectory(runtime);
 
   runtime.output.appendLine(
     `[persistence] opening sqlite database at ${paths.databaseFile}`
   );
 
-  const db = new Database(paths.databaseFile);
+  const sqlModule = await loadSqlJsModule();
+  const existingBytes = loadExistingDatabaseBytes(paths.databaseFile);
+  const dbHandle = new sqlModule.Database(existingBytes);
 
-  /**
-   * Enforce foreign key integrity once relational tables exist.
-   */
-  db.pragma("foreign_keys = ON");
-
-  /**
-   * WAL mode is a practical local default for durability and concurrency.
-   */
-  db.pragma("journal_mode = WAL");
+  const db: SqliteDatabase = {
+    module: sqlModule,
+    db: dbHandle,
+    databaseFile: paths.databaseFile,
+  };
 
   /**
    * Bring the DB schema up to date before returning the handle.
@@ -231,19 +338,77 @@ export function openSqliteDatabase(runtime: ExtensionRuntime): SqliteDatabase {
 
 /**
  * Close the SQLite database safely.
+ *
+ * We persist one final time before closing so in-memory state is not lost.
  */
 export function closeSqliteDatabase(
   runtime: ExtensionRuntime,
   db: SqliteDatabase
 ): void {
   runtime.output.appendLine("[persistence] closing sqlite database");
-  db.close();
+  persistSqliteDatabase(db);
+  db.db.close();
+}
+
+/**
+ * Execute one mutating SQL statement and persist the DB immediately.
+ *
+ * Why immediate persistence:
+ * - keeps behavior simple and durable during early bring-up
+ * - avoids having to invent a unit-of-work abstraction too early
+ */
+export function executeMutation(
+  db: SqliteDatabase,
+  sql: string,
+  params?: SqlParameters
+): void {
+  db.db.run(sql, params);
+  persistSqliteDatabase(db);
+}
+
+/**
+ * Execute a query and return all rows as typed objects.
+ */
+export function queryAll<T>(
+  db: SqliteDatabase,
+  sql: string,
+  params?: SqlParameters
+): T[] {
+  const statement = db.db.prepare(sql);
+
+  try {
+    if (params !== undefined) {
+      statement.bind(params);
+    }
+
+    const rows: T[] = [];
+
+    while (statement.step()) {
+      rows.push(statement.getAsObject() as T);
+    }
+
+    return rows;
+  } finally {
+    statement.free();
+  }
+}
+
+/**
+ * Execute a query and return one row or null.
+ */
+export function queryOne<T>(
+  db: SqliteDatabase,
+  sql: string,
+  params?: SqlParameters
+): T | null {
+  const rows = queryAll<T>(db, sql, params);
+  return rows[0] ?? null;
 }
 
 /**
  * Lightweight proof-of-life helper for the DB connection.
  */
 export function verifySqliteConnection(db: SqliteDatabase): number {
-  const row = db.prepare("SELECT 1 AS value").get() as { value: number };
-  return row.value;
+  const row = queryOne<{ value: number }>(db, "SELECT 1 AS value");
+  return row?.value ?? 0;
 }

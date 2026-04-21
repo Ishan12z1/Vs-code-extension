@@ -17,28 +17,22 @@ import type { ServiceContainer } from "./serviceContainer";
 /**
  * Creates the shared objects used across the extension.
  *
- * Phase 3.3 change:
- * - SQLite is now opened during service registration
- * - repositories are constructed here
- * - services start depending on repositories instead of mock-only behavior
+ * Phase switch note:
+ * - opening sql.js is async, so service registration is now async too
  */
-export function registerServices(
+export async function registerServices(
   context: vscode.ExtensionContext
-): ServiceContainer {
+): Promise<ServiceContainer> {
   const runtime = createRuntime(context);
-
-  /**
-   * Existing sidebar UI surface.
-   */
   const sidebarProvider = new ControlAgentSidebarProvider(runtime);
 
   /**
    * Open the durable local SQLite database.
    */
-  const db = openSqliteDatabase(runtime);
+  const db = await openSqliteDatabase(runtime);
 
   /**
-   * Repository layer over the SQLite schema.
+   * Repository layer over the current SQLite schema.
    */
   const runRepository = new RunRepository(db);
   const approvalRepository = new ApprovalRepository(db);

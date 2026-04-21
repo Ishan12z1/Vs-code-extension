@@ -43,36 +43,24 @@ const sqlite_1 = require("./persistence/db/sqlite");
 /**
  * Extension entry point.
  *
- * Phase 3.3 change:
- * - the SQLite database is now opened through registerServices
- * - extension shutdown now closes the DB handle explicitly
+ * Phase switch note:
+ * - sql.js bootstrap is async
+ * - activate therefore awaits service registration before wiring views/commands
  */
-function activate(context) {
-    const services = (0, registerServices_1.registerServices)(context);
+async function activate(context) {
+    const services = await (0, registerServices_1.registerServices)(context);
     services.runtime.output.appendLine("Activating VS Code Control Agent...");
-    /**
-     * The shared output channel is a disposable resource and must be tied
-     * to the extension lifecycle.
-     */
     context.subscriptions.push(services.runtime.output);
     /**
-     * Ensure the open SQLite connection is closed when the extension unloads.
+     * Ensure the open SQLite connection is flushed and closed when the extension unloads.
      */
     context.subscriptions.push({
         dispose: () => {
             (0, sqlite_1.closeSqliteDatabase)(services.runtime, services.db);
         },
     });
-    /**
-     * Register all extension surfaces through dedicated bootstrap functions.
-     */
     (0, registerViews_1.registerViews)(context, services);
     (0, registerCommands_1.registerCommands)(context, services);
-    /**
-     * Keep the visible shell configuration in sync while the old sidebar-based
-     * flow still exists. This remains transitional until later phases move more
-     * behavior into the local runtime/service path.
-     */
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
         if (!event.affectsConfiguration("controlAgent")) {
             return;
