@@ -1,4 +1,6 @@
 import type { AgentRuntime } from "../agent/runtime/AgentRuntime";
+import type { PolicyEngine } from "../policy/PolicyEngine";
+import type { RiskClassifier } from "../policy/RiskClassifier";
 import type { SqliteDatabase } from "../persistence/db/sqlite";
 import type { ApprovalRepository } from "../persistence/repositories/ApprovalRepository";
 import type { CheckpointRepository } from "../persistence/repositories/CheckpointRepository";
@@ -17,33 +19,21 @@ import type { ControlAgentSidebarProvider } from "../webview/ControlAgentSidebar
 export interface ServiceContainer {
   readonly runtime: ExtensionRuntime;
   readonly sidebarProvider: ControlAgentSidebarProvider;
-
-  /**
-   * Open SQLite handle for the extension lifecycle.
-   */
   readonly db: SqliteDatabase;
-
-  /**
-   * Local runtime skeleton.
-   */
   readonly agentRuntime: AgentRuntime;
 
   /**
-   * Repositories over the current SQLite schema.
+   * Policy core added in phase 6.1.
    */
+  readonly riskClassifier: RiskClassifier;
+  readonly policyEngine: PolicyEngine;
+
   readonly runRepository: RunRepository;
   readonly approvalRepository: ApprovalRepository;
   readonly checkpointRepository: CheckpointRepository;
   readonly marketplaceCacheRepository: MarketplaceCacheRepository;
-
-  /**
-   * File-based snapshot persistence.
-   */
   readonly snapshotStore: SnapshotStore;
 
-  /**
-   * Application-facing services.
-   */
   readonly agentRunService: AgentRunService;
   readonly historyService: HistoryService;
   readonly setupInspectionService: SetupInspectionService;

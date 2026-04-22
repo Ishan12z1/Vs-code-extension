@@ -2,6 +2,8 @@ import * as vscode from "vscode";
 import { RunCoordinator } from "../agent/orchestration/RunCoordinator";
 import { AgentRuntime } from "../agent/runtime/AgentRuntime";
 import { RunStateMachine } from "../agent/runtime/RunStateMachine";
+import { PolicyEngine } from "../policy/PolicyEngine";
+import { RiskClassifier } from "../policy/RiskClassifier";
 import { openSqliteDatabase } from "../persistence/db/sqlite";
 import { ApprovalRepository } from "../persistence/repositories/ApprovalRepository";
 import { CheckpointRepository } from "../persistence/repositories/CheckpointRepository";
@@ -18,8 +20,9 @@ import type { ServiceContainer } from "./serviceContainer";
 /**
  * Creates the shared objects used across the extension.
  *
- * Phase 3.4 change:
- * - file-based snapshot storage now exists alongside SQLite metadata storage
+ * Phase 6.1 change:
+ * - risk classification and policy evaluation are now first-class services
+ * - runtime integration still comes later
  */
 export async function registerServices(
   context: vscode.ExtensionContext
@@ -27,34 +30,25 @@ export async function registerServices(
   const runtime = createRuntime(context);
   const sidebarProvider = new ControlAgentSidebarProvider(runtime);
 
-  /**
-   * Open the durable local SQLite database.
-   */
   const db = await openSqliteDatabase(runtime);
 
-  /**
-   * Repository layer over the current SQLite schema.
-   */
   const runRepository = new RunRepository(db);
   const approvalRepository = new ApprovalRepository(db);
   const checkpointRepository = new CheckpointRepository(db);
   const marketplaceCacheRepository = new MarketplaceCacheRepository(db);
 
-  /**
-   * File-based snapshot store for rollback artifacts.
-   */
   const snapshotStore = new SnapshotStore(runtime);
 
-  /**
-   * Local runtime skeleton.
-   */
   const runStateMachine = new RunStateMachine();
   const runCoordinator = new RunCoordinator(runStateMachine);
   const agentRuntime = new AgentRuntime(runCoordinator);
 
   /**
-   * Application-facing services.
+   * Policy core.
    */
+  const riskClassifier = new RiskClassifier();
+  const policyEngine = new PolicyEngine(riskClassifier);
+
   const agentRunService = new AgentRunService(agentRuntime, runRepository);
   const historyService = new HistoryService(runRepository);
   const setupInspectionService = new SetupInspectionService(runtime);
@@ -64,6 +58,8 @@ export async function registerServices(
     sidebarProvider,
     db,
     agentRuntime,
+    riskClassifier,
+    policyEngine,
     runRepository,
     approvalRepository,
     checkpointRepository,
