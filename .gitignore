@@ -11,4 +11,6 @@ dist/
 dist-tests/
 **/dist/
 /dist/
-.apps/vscode-extension/dist/*
+apps/vscode-extension/dist/*
+apps/vscode-extension/dist/extension.js
+apps/vscode-extension/dist/extension.js.map
