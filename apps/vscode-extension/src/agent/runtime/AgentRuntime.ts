@@ -1,30 +1,40 @@
-import type { AgentGoal, AgentRunState } from "@control-agent/contracts";
+import type {
+  ActionPreview,
+  AgentGoal,
+  AgentRunState,
+  SurfaceAction,
+} from "@control-agent/contracts";
 import { RunCoordinator } from "../orchestration/RunCoordinator";
 
 /**
  * Local agent runtime skeleton.
  *
- * This class will later own the bounded autonomous loop:
- * - inspect context
- * - choose next tool
- * - run policy check
- * - execute one step
- * - verify
- * - continue / stop / wait for approval
- *
- * Current phase note:
- * - no real loop yet
- * - this only starts a run through RunCoordinator
+ * Phase 6.3 change:
+ * - the runtime can now start a run through the policy gate
+ * - this is the first real policy-aware runtime behavior
  */
 export class AgentRuntime {
   public constructor(private readonly runCoordinator: RunCoordinator) {}
 
   /**
-   * Start a new local agent run.
-   *
-   * Later this method will become the entrypoint into the full stepwise loop.
+   * Start a new local agent run without an immediate action.
    */
   public startRun(goal: AgentGoal): AgentRunState {
     return this.runCoordinator.start(goal);
+  }
+
+  /**
+   * Start a new local run and immediately policy-check one action.
+   *
+   * Why this exists:
+   * - gives the current runtime one real enforcement path
+   * - later phases can replace this with a richer action loop
+   */
+  public startRunWithAction(
+    goal: AgentGoal,
+    action: SurfaceAction,
+    preview?: ActionPreview
+  ): AgentRunState {
+    return this.runCoordinator.startWithAction(goal, action, preview);
   }
 }

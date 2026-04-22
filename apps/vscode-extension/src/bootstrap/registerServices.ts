@@ -21,8 +21,8 @@ import type { ServiceContainer } from "./serviceContainer";
 /**
  * Creates the shared objects used across the extension.
  *
- * Phase 6.2 change:
- * - approval requests/decisions now have a first-class service layer
+ * Phase 6.3 change:
+ * - runtime coordination now depends on policy + approval services
  */
 export async function registerServices(
   context: vscode.ExtensionContext
@@ -39,15 +39,22 @@ export async function registerServices(
 
   const snapshotStore = new SnapshotStore(runtime);
 
-  const runStateMachine = new RunStateMachine();
-  const runCoordinator = new RunCoordinator(runStateMachine);
-  const agentRuntime = new AgentRuntime(runCoordinator);
-
   const riskClassifier = new RiskClassifier();
   const policyEngine = new PolicyEngine(riskClassifier);
+  const approvalService = new ApprovalService(approvalRepository);
+
+  /**
+   * Local runtime skeleton with policy-aware coordination.
+   */
+  const runStateMachine = new RunStateMachine();
+  const runCoordinator = new RunCoordinator(
+    runStateMachine,
+    policyEngine,
+    approvalService
+  );
+  const agentRuntime = new AgentRuntime(runCoordinator);
 
   const agentRunService = new AgentRunService(agentRuntime, runRepository);
-  const approvalService = new ApprovalService(approvalRepository);
   const historyService = new HistoryService(runRepository);
   const setupInspectionService = new SetupInspectionService(runtime);
 
