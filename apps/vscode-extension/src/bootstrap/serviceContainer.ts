@@ -8,6 +8,7 @@ import type { MarketplaceCacheRepository } from "../persistence/repositories/Mar
 import type { RunRepository } from "../persistence/repositories/RunRepository";
 import type { SnapshotStore } from "../persistence/snapshots/SnapshotStore";
 import type { AgentRunService } from "../services/AgentRunService";
+import type { ApprovalService } from "../services/ApprovalService";
 import type { HistoryService } from "../services/HistoryService";
 import type { SetupInspectionService } from "../services/SetupInspectionService";
 import type { ExtensionRuntime } from "../state/runtime";
@@ -22,9 +23,6 @@ export interface ServiceContainer {
   readonly db: SqliteDatabase;
   readonly agentRuntime: AgentRuntime;
 
-  /**
-   * Policy core added in phase 6.1.
-   */
   readonly riskClassifier: RiskClassifier;
   readonly policyEngine: PolicyEngine;
 
@@ -35,6 +33,7 @@ export interface ServiceContainer {
   readonly snapshotStore: SnapshotStore;
 
   readonly agentRunService: AgentRunService;
+  readonly approvalService: ApprovalService;
   readonly historyService: HistoryService;
   readonly setupInspectionService: SetupInspectionService;
 }

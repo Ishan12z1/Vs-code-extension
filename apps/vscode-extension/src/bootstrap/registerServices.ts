@@ -11,6 +11,7 @@ import { MarketplaceCacheRepository } from "../persistence/repositories/Marketpl
 import { RunRepository } from "../persistence/repositories/RunRepository";
 import { SnapshotStore } from "../persistence/snapshots/SnapshotStore";
 import { AgentRunService } from "../services/AgentRunService";
+import { ApprovalService } from "../services/ApprovalService";
 import { HistoryService } from "../services/HistoryService";
 import { SetupInspectionService } from "../services/SetupInspectionService";
 import { createRuntime } from "../state/runtime";
@@ -20,9 +21,8 @@ import type { ServiceContainer } from "./serviceContainer";
 /**
  * Creates the shared objects used across the extension.
  *
- * Phase 6.1 change:
- * - risk classification and policy evaluation are now first-class services
- * - runtime integration still comes later
+ * Phase 6.2 change:
+ * - approval requests/decisions now have a first-class service layer
  */
 export async function registerServices(
   context: vscode.ExtensionContext
@@ -43,13 +43,11 @@ export async function registerServices(
   const runCoordinator = new RunCoordinator(runStateMachine);
   const agentRuntime = new AgentRuntime(runCoordinator);
 
-  /**
-   * Policy core.
-   */
   const riskClassifier = new RiskClassifier();
   const policyEngine = new PolicyEngine(riskClassifier);
 
   const agentRunService = new AgentRunService(agentRuntime, runRepository);
+  const approvalService = new ApprovalService(approvalRepository);
   const historyService = new HistoryService(runRepository);
   const setupInspectionService = new SetupInspectionService(runtime);
 
@@ -66,6 +64,7 @@ export async function registerServices(
     marketplaceCacheRepository,
     snapshotStore,
     agentRunService,
+    approvalService,
     historyService,
     setupInspectionService,
   };
